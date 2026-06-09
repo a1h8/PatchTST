@@ -98,23 +98,28 @@ correlation. The real cost of multivariate — temporal alignment of
 heterogeneous K8s cadences onto a common grid — is paid inside the source
 connector (`connectors/alignment.py`), never in the core.
 
+The contract is **engine-agnostic** (decision D6): a source *yields* rows, a sink
+*consumes* them — no execution engine appears in the contract.
+
 ```python
-# connectors/base.py
+# connectors/base.py — no engine import
 from abc import ABC, abstractmethod
-import apache_beam as beam
+from typing import Iterable
 
 # Pivot schema — the only language the core understands:
 # {group_id: str, ts: int, values: tuple[float], channels: tuple[str], labels: dict}
 
 class SourceConnector(ABC):
     @abstractmethod
-    def read(self) -> beam.PTransform:   # -> PCollection[PivotRow]
+    def read(self) -> Iterable[PivotRow]:        # pure Python
         ...
+    def native_beam_read(self): return None      # optional engine-native override
 
 class SinkConnector(ABC):
     @abstractmethod
-    def write(self) -> beam.PTransform:  # PCollection -> writes out
+    def write(self, rows: Iterable) -> None:      # pure Python
         ...
+    def native_beam_write(self): return None      # optional engine-native override
 ```
 
 ```python
@@ -131,17 +136,40 @@ def build(name: str, **cfg):
     return _REGISTRY[name](**cfg)
 ```
 
-The pipeline is config-driven and source/sink agnostic:
-
-```python
-src = build(cfg.source.type, **cfg.source.params)
-sinks = [build(s.type, **s.params) for s in cfg.sinks]
-
-p | src.read() | Window() | RunInference(patchtst) | Detect() | *[s.write() for s in sinks]
-```
-
 Adding a connector = dropping one file with `@connector("name")`. The core and
 the pipeline never change. That openness is the point of having N connectors.
+
+## Execution engines — ports & adapters (D6)
+
+The core and connectors are engine-agnostic; an **engine adapter** runs a
+`source → sinks` flow on a concrete runtime. The engine depends on connectors,
+never the reverse — the hexagonal boundary that lets the system plug into any
+engine.
+
+```
+core (PivotRow, connectors, detection)  ── engine-agnostic
+    │
+    ├─ engines/local.py   pure Python — no third-party dep (dev, tests, small jobs)
+    ├─ engines/beam.py    Apache Beam (current production path)
+    └─ engines/spark.py   Spark / Databricks (planned, "one engine among others")
+```
+
+```python
+src   = build(cfg.source.type, **cfg.source.params)
+sinks = [build(s.type, **s.params) for s in cfg.sinks]
+
+LocalEngine().run(src, sinks)   # or BeamEngine().run(src, sinks)
+```
+
+**Native capability hook.** A pure iterator cannot express an engine's native
+distributed/unbounded I/O (unbounded Kafka, a parallel writer). A connector may
+expose `native_beam_read` / `native_beam_write`; the engine adapter uses them
+when present and falls back to gather-and-call otherwise. This keeps connectors
+portable without sacrificing engine-native streaming where it matters.
+
+Trade-off (accepted): "plug any engine" is not free — each engine needs its
+adapter, and engine-native features are not portable for nothing. But the core,
+connectors, and detection logic are written once, engine-free.
 
 ## Deployment is independent of design
 

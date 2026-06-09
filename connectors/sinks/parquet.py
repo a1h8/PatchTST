@@ -1,15 +1,16 @@
 """Parquet sink (connector C11/C18 stepping stone).
 
-Writes pipeline output as Parquet. Targets a local path for the batch POC and an
-S3-compatible store (MinIO) via an ``s3://`` path once ``s3fs``/filesystem is
-configured — same code, sovereign substrate. Iceberg table format (C18) layers
-on top later without changing the connector contract.
+Writes records as Parquet. Targets a local path and, via the S3 API, any
+S3-compatible store; Iceberg (C18) layers on later without changing the contract.
 
-Beam is imported lazily in ``write``.
+Engine-agnostic ``write`` uses pyarrow directly (no engine needed). Under Beam,
+the native hook ``native_beam_write`` provides a distributed ``WriteToParquet``
+instead. pyarrow / beam are imported lazily so the core stays dependency-free.
 """
 from __future__ import annotations
 
 import json
+from typing import Any, Iterable
 
 from ..base import SinkConnector
 from ..registry import connector
@@ -55,7 +56,20 @@ class ParquetSink(SinkConnector):
             "labels": json.dumps(dict(row.labels), sort_keys=True),
         }
 
-    def write(self):
+    def local_path(self) -> str:
+        """Single-file output path used by the agnostic writer."""
+        return f"{self.path}{self.file_name_suffix}"
+
+    def write(self, rows: Iterable[Any]) -> None:
+        """Engine-agnostic write: materialize records and write one Parquet file."""
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+
+        records = [self.as_record(r) for r in rows]
+        table = pa.Table.from_pylist(records, schema=self._pyarrow_schema())
+        pq.write_table(table, self.local_path())
+
+    def native_beam_write(self):
         import apache_beam as beam  # lazy
         from apache_beam.io.parquetio import WriteToParquet
 
