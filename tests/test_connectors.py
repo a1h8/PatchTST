@@ -17,7 +17,23 @@ from connectors.conformance import (
 from connectors.pivot import PivotRow
 from connectors.registry import available, connector
 from connectors.sinks.parquet import ParquetSink
-from connectors.sources.mimir import MimirSource, to_pivot_rows
+from connectors.sources.mimir import MimirSource, query_range, to_pivot_rows
+
+
+class _FakeResp:
+    """Minimal urlopen() return value: a context manager exposing read()."""
+
+    def __init__(self, data: bytes) -> None:
+        self._data = data
+
+    def read(self) -> bytes:
+        return self._data
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
 
 
 # --- pivot schema ---------------------------------------------------------
@@ -183,6 +199,19 @@ def test_align_group_zero_fill_before_first_value():
     assert rows[1].values == (1.0, 2.0)  # 'a' carried forward, 'b' now present
 
 
+def test_align_group_ffill_skips_until_all_channels_seen():
+    # 'b' only appears at bucket 2000 -> earlier buckets have no prior to ffill,
+    # so they are skipped until every channel has been seen at least once.
+    rows = align_group(
+        "g",
+        {"a": [(0, 1.0), (1000, 1.1), (2000, 1.2)], "b": [(2000, 9.0)]},
+        step_ms=1000,
+        fill="ffill",
+    )
+    assert [r.ts for r in rows] == [2000]
+    assert rows[0].values == (1.2, 9.0)
+
+
 def test_align_group_single_channel():
     rows = align_group("g", {"cpu": [(0, 1.0), (1000, 2.0)]}, step_ms=1000)
     assert [r.values for r in rows] == [(1.0,), (2.0,)]
@@ -219,3 +248,55 @@ def test_sink_and_source_kinds():
     assert MimirSource("http://m", "up", 0, 1).kind == "source"
     assert issubclass(MimirSource, SourceConnector)
     assert issubclass(ParquetSink, SinkConnector)
+
+
+# --- mimir HTTP query (urlopen mocked) ------------------------------------
+
+def test_query_range_success(monkeypatch):
+    import json as _json
+
+    payload = {
+        "status": "success",
+        "data": {"result": [{"metric": {}, "values": [[0, "1.0"]]}]},
+    }
+    captured = {}
+
+    def fake_urlopen(req, timeout=None):
+        captured["url"] = req.full_url
+        captured["header_values"] = list(req.headers.values())
+        return _FakeResp(_json.dumps(payload).encode())
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    out = query_range("http://mimir:9009/", "up", 0, 30, 15, tenant="team-a")
+
+    assert out == payload["data"]["result"]
+    assert "query=up" in captured["url"]
+    assert "/prometheus/api/v1/query_range" in captured["url"]
+    assert "team-a" in captured["header_values"]  # tenant header set
+
+
+def test_query_range_no_tenant_omits_header(monkeypatch):
+    import json as _json
+
+    payload = {"status": "success", "data": {"result": []}}
+    captured = {}
+
+    def fake_urlopen(req, timeout=None):
+        captured["header_values"] = list(req.headers.values())
+        return _FakeResp(_json.dumps(payload).encode())
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    assert query_range("http://m", "up", 0, 1, 15) == []
+    assert captured["header_values"] == []
+
+
+def test_query_range_error_status_raises(monkeypatch):
+    import json as _json
+
+    payload = {"status": "error", "error": "bad query"}
+    monkeypatch.setattr(
+        "urllib.request.urlopen",
+        lambda req, timeout=None: _FakeResp(_json.dumps(payload).encode()),
+    )
+    with pytest.raises(RuntimeError, match="bad query"):
+        query_range("http://m", "up", 0, 1, 15)
