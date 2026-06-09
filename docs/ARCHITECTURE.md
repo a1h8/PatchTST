@@ -26,7 +26,7 @@ Agents (Prometheus / OTEL)
    Beam / Flink  (windowing)                       │
         │                                          │
         ▼                                          │
-   PatchTST inference (reconstruction error)       │
+   PatchTST inference (forecast ⇄ reconstruction)  │
         │                                          │
         ▼                                          │
    Variation detection                             │
@@ -41,15 +41,54 @@ Iceberg datalake — one storage layer to secure, back up, and keep sovereign.
 
 ## Detection mechanism
 
-Default: **self-supervised reconstruction error** (`PatchTST_self_supervised`).
-The model reconstructs masked patches; the gap between reconstruction and actual
-value is the variation signal. This needs no labels and gives a clean reactive
-signal. The forecast-plus-residual path remains an alternative (decision D1).
+**Decided (D1): dual detector, regime-switching.** Two signals on one PatchTST
+pipeline, each used where it is reliable:
+
+- **Forecast — anticipation** (`PatchTST_supervised`). In the normal/trending
+  regime the model forecasts the trajectory; a predicted threshold crossing
+  within horizon `h` raises an early **WARN**. This is the "see the wall coming"
+  path, scoped to slow-saturation metrics (disk, memory, quota, latency drift).
+- **Reconstruction — detective** (`PatchTST_self_supervised`). A brutal break
+  pushes the input out-of-distribution, where the forecaster collapses (its
+  predictions become unreliable exactly when needed). Reconstruction error spikes
+  cleanly on OOD input, so at the break the verdict switches to this signal — no
+  waiting for `actual[t+h]`.
+
+**Why both, not one.** It is not a compromise but the technically correct split:
+forecast is accurate pre-break and buys lead time; reconstruction is the clean
+signal during the incident *because* forecast degrades under regime change.
+
+**State machine per `group_id`:**
+
+```
+NORMAL  ──(break: reconstruction error spikes)──►  INCIDENT
+   ▲                                                   │
+   └──────────(recovery: error back to baseline)───────┘
+
+NORMAL   : forecast drives anticipation (early WARN)
+INCIDENT : reconstruction drives the verdict; anticipation suspended (model OOD)
+```
+
+**Design constraint:** anticipation only pays if it is actionable — the horizon
+`h` must be ≤ the remediation time (autoscale / drain / page), otherwise an early
+WARN is cosmetic and detective alone is preferable.
 
 ## Connector SPI — open to N plugins
 
 Connectors are not architecture decisions, they are interchangeable
 implementations of one contract.
+
+**Decided (D4): native multivariate pivot.** A row carries an aligned vector of
+channel values at one timestamp:
+`{group_id: str, ts: int, values: tuple[float], channels: tuple[str], labels: dict}`.
+
+Intentional model mismatch, accepted with eyes open: PatchTST is
+**channel-independent** — it processes each channel as an independent univariate
+sequence with no cross-channel attention. So the grouping buys batching and a
+group-level detection decision, **not** joint modeling of cross-channel
+correlation. The real cost of multivariate — temporal alignment of
+heterogeneous K8s cadences onto a common grid — is paid inside the source
+connector (`connectors/alignment.py`), never in the core.
 
 ```python
 # connectors/base.py
@@ -57,7 +96,7 @@ from abc import ABC, abstractmethod
 import apache_beam as beam
 
 # Pivot schema — the only language the core understands:
-# {series_id: str, ts: int, value: float, labels: dict}
+# {group_id: str, ts: int, values: tuple[float], channels: tuple[str], labels: dict}
 
 class SourceConnector(ABC):
     @abstractmethod
