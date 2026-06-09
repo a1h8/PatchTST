@@ -1,0 +1,10 @@
+# Connector / pipeline runtime deps — kept separate from the research training
+# deps so that running PatchTST training does not require a heavy Beam install.
+#
+#   pip install -r requirements-connectors.txt
+#
+# The SPI core (pivot, registry, alignment, conformance) needs none of these;
+# they are required only to run Beam pipelines and write Parquet.
+apache-beam>=2.70
+pyarrow>=14.0
+# s3fs>=2024.2    # enable for MinIO/S3 (s3://) Parquet output

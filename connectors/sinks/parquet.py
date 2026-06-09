@@ -9,11 +9,10 @@ Beam is imported lazily in ``write``.
 """
 from __future__ import annotations
 
+import json
+
 from ..base import SinkConnector
 from ..registry import connector
-
-# Arrow-friendly flat schema for detection output.
-_FIELDS = ["group_id", "ts", "channels", "values", "labels"]
 
 
 @connector("parquet")
@@ -34,38 +33,51 @@ class ParquetSink(SinkConnector):
     def _pyarrow_schema(self):
         import pyarrow as pa  # lazy
 
+        # labels stored as a JSON string for a robust, schema-stable round-trip.
         return pa.schema(
             [
                 ("group_id", pa.string()),
                 ("ts", pa.int64()),
                 ("channels", pa.list_(pa.string())),
                 ("values", pa.list_(pa.float64())),
-                ("labels", pa.map_(pa.string(), pa.string())),
+                ("labels", pa.string()),
             ]
         )
+
+    @staticmethod
+    def as_record(row) -> dict:
+        """PivotRow (or detection row) -> flat Arrow-friendly dict."""
+        return {
+            "group_id": row.group_id,
+            "ts": int(row.ts),
+            "channels": list(row.channels),
+            "values": [float(v) for v in row.values],
+            "labels": json.dumps(dict(row.labels), sort_keys=True),
+        }
 
     def write(self):
         import apache_beam as beam  # lazy
         from apache_beam.io.parquetio import WriteToParquet
 
-        def as_record(row) -> dict:
-            return {
-                "group_id": row.group_id,
-                "ts": row.ts,
-                "channels": list(row.channels),
-                "values": [float(v) for v in row.values],
-                "labels": dict(row.labels),
-            }
+        schema = self._pyarrow_schema()
+        path, suffix, shards = self.path, self.file_name_suffix, self.num_shards
+        as_record = self.as_record
 
-        return "ToParquet" >> (
-            beam.Map(as_record)
-            | WriteToParquet(
-                file_path_prefix=self.path,
-                schema=self._pyarrow_schema(),
-                file_name_suffix=self.file_name_suffix,
-                num_shards=self.num_shards,
-            )
-        )
+        class _ToParquet(beam.PTransform):
+            def expand(self, pcoll):
+                return (
+                    pcoll
+                    | "AsRecord" >> beam.Map(as_record)
+                    | "WriteParquet"
+                    >> WriteToParquet(
+                        file_path_prefix=path,
+                        schema=schema,
+                        file_name_suffix=suffix,
+                        num_shards=shards,
+                    )
+                )
+
+        return _ToParquet()
 
     def describe(self):
         return {**super().describe(), "path": self.path}

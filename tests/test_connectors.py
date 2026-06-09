@@ -7,6 +7,7 @@ import pytest
 
 import connectors  # noqa: F401  (triggers built-in registration)
 from connectors.alignment import align_group
+from connectors.base import SinkConnector, SourceConnector
 from connectors.conformance import (
     assert_buildable,
     assert_registered,
@@ -14,8 +15,9 @@ from connectors.conformance import (
     assert_source_contract,
 )
 from connectors.pivot import PivotRow
-from connectors.registry import available
-from connectors.sources.mimir import to_pivot_rows
+from connectors.registry import available, connector
+from connectors.sinks.parquet import ParquetSink
+from connectors.sources.mimir import MimirSource, to_pivot_rows
 
 
 # --- pivot schema ---------------------------------------------------------
@@ -120,3 +122,100 @@ def test_mimir_to_pivot_rows_groups_and_aligns():
     assert {r.group_id for r in rows} == {"pod-a"}
     assert rows[0].channels == ("cpu", "mem")
     assert rows[0].values == (1.0, 5.0)
+
+
+# --- pivot edge cases -----------------------------------------------------
+
+def test_pivot_rejects_empty_group_id():
+    with pytest.raises(ValueError, match="group_id must be non-empty"):
+        PivotRow("", 0, (1.0,), ("cpu",))
+
+
+def test_pivot_default_labels_empty():
+    row = PivotRow("g", 0, (1.0,), ("cpu",))
+    assert row.labels == {}
+
+
+# --- registry edge cases --------------------------------------------------
+
+def test_connector_rejects_non_connector_class():
+    with pytest.raises(TypeError, match="must subclass"):
+
+        @connector("bad")
+        class _Bad:  # not a Source/Sink
+            pass
+
+
+def test_connector_rejects_duplicate_name():
+    with pytest.raises(ValueError, match="already registered"):
+
+        @connector("mimir")  # already taken by MimirSource
+        class _Dup(SourceConnector):
+            def read(self):  # pragma: no cover
+                ...
+
+
+def test_available_is_sorted():
+    keys = list(available())
+    assert keys == sorted(keys)
+
+
+def test_assert_registered_missing_raises():
+    with pytest.raises(AssertionError, match="not registered"):
+        assert_registered("nope")
+
+
+# --- alignment edge cases -------------------------------------------------
+
+def test_align_group_empty_series():
+    assert align_group("g", {}, step_ms=1000) == []
+
+
+def test_align_group_zero_fill_before_first_value():
+    # channel 'b' has no value at bucket 0 -> 'zero' fills 0.0 instead of skipping
+    rows = align_group(
+        "g",
+        {"a": [(0, 1.0)], "b": [(1000, 2.0)]},
+        step_ms=1000,
+        fill="zero",
+    )
+    assert rows[0].ts == 0 and rows[0].values == (1.0, 0.0)
+    assert rows[1].values == (1.0, 2.0)  # 'a' carried forward, 'b' now present
+
+
+def test_align_group_single_channel():
+    rows = align_group("g", {"cpu": [(0, 1.0), (1000, 2.0)]}, step_ms=1000)
+    assert [r.values for r in rows] == [(1.0,), (2.0,)]
+    assert all(r.width == 1 for r in rows)
+
+
+# --- connector describe / parquet record ----------------------------------
+
+def test_mimir_describe():
+    src = MimirSource("http://m:9009", "up", 0, 10, group_by=["pod"])
+    d = src.describe()
+    assert d["kind"] == "source" and d["promql"] == "up" and d["group_by"] == ["pod"]
+
+
+def test_mimir_defaults_group_id_when_label_absent():
+    result = [{"metric": {"__name__": "cpu"}, "values": [[0, "1.0"]]}]
+    rows = to_pivot_rows(
+        result, group_by=["instance"], channel_label="__name__",
+        step_ms=1000, fill="ffill",
+    )
+    assert rows[0].group_id == "default"
+
+
+def test_parquet_as_record_and_describe():
+    sink = ParquetSink("/tmp/out")
+    rec = ParquetSink.as_record(PivotRow("g", 5, (1.0, 2.0), ("a", "b"), {"k": "v"}))
+    assert rec["group_id"] == "g" and rec["values"] == [1.0, 2.0]
+    assert rec["labels"] == '{"k": "v"}'
+    assert sink.describe()["path"] == "/tmp/out"
+
+
+def test_sink_and_source_kinds():
+    assert ParquetSink("/x").kind == "sink"
+    assert MimirSource("http://m", "up", 0, 1).kind == "source"
+    assert issubclass(MimirSource, SourceConnector)
+    assert issubclass(ParquetSink, SinkConnector)
