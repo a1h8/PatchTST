@@ -45,6 +45,7 @@ demand, not upfront.
 | D3 | Plugin discovery: internal registry vs Python entry-points | ✅ **Internal registry** |
 | D4 | Pivot schema: univariate vs native multivariate | ✅ **Native multivariate** |
 | D5 | Datalake purpose: retraining vs analytics/compliance vs both | TBD |
+| D6 | Engine coupling: Beam in the contract vs engine-agnostic core | ✅ **Engine-agnostic** (ports & adapters): Local + Beam engines, Spark/Databricks next |
 
 ## Scope note — SPI vs catalog
 

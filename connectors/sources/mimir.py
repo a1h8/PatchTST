@@ -133,12 +133,11 @@ class MimirSource(SourceConnector):
             fill=self.fill,
         )
 
-    def read(self):
-        import apache_beam as beam  # lazy: keep module importable without beam
-
-        # Batch/replay: materialize the query, then fan out as a PCollection.
-        # Streaming live ingestion is a separate connector (M5).
-        return beam.Create(self._fetch_rows())
+    def read(self) -> list[PivotRow]:
+        # Engine-agnostic: yield aligned rows. Batch/replay over Mimir's history.
+        # The Beam adapter wraps this in beam.Create; streaming live ingestion is
+        # a separate (Kafka/OTLP) source with its own native unbounded read (M5).
+        return self._fetch_rows()
 
     def describe(self):
         return {
