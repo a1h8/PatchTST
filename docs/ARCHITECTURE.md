@@ -2,9 +2,10 @@
 
 ## Goal
 
-Consolidate K8s metrics into a sovereign datalake and detect variations
-(anomalies / drift) on time-series using PatchTST, with unified batch and
-streaming processing.
+Consolidate K8s metrics into a datalake and detect variations (anomalies /
+drift) on time-series using PatchTST, with unified batch and streaming
+processing. The design is provider-agnostic — deployment target (managed cloud,
+self-hosted, or sovereign) is a configuration choice, not baked into the core.
 
 ## Core principle
 
@@ -12,32 +13,39 @@ The processing core (windowing → PatchTST inference → variation detection)
 never knows where data comes from or goes to. Sources and sinks are **plugins**
 behind a stable contract. Apache Beam is the engine because the same pipeline
 runs in batch (replay history) and streaming (live ingestion), and is portable
-across runners (DirectRunner for dev, Flink/Spark on-cluster for sovereign prod).
+across runners (DirectRunner for dev, Flink/Spark on-cluster or Dataflow for prod).
 
-## Target flow (sovereign stack)
+## Reference flow
+
+The boxes below are *roles*, each filled by an interchangeable connector. The
+names in parentheses are one possible instantiation; any backend that implements
+the SPI role can be substituted (see [CONNECTORS.md](./CONNECTORS.md)).
 
 ```
 Agents (Prometheus / OTEL)
         │  remote-write
         ▼
-   Grafana Mimir  ◄──── metric blocks ────►  MinIO (S3)
-        │  PromQL query_range                      ▲
-        ▼                                          │
-   Beam / Flink  (windowing)                       │
-        │                                          │
-        ▼                                          │
-   PatchTST inference (forecast ⇄ reconstruction)  │
-        │                                          │
-        ▼                                          │
-   Variation detection                             │
-        │                                          │
-        ├──► Iceberg datalake ────────────────────┘  (same MinIO substrate)
-        ├──► ClickHouse (analytics)
-        └──► KubeVerdict (alerting / verdict)
+   metrics store  ◄──── blocks ────►  object store (S3 API)
+   (e.g. Mimir)                            ▲
+        │  query / pull                    │
+        ▼                                  │
+   Beam runner  (windowing)                │
+   (Direct / Flink / Spark / Dataflow)     │
+        │                                  │
+        ▼                                  │
+   PatchTST inference (forecast ⇄ reconstruction)
+        │                                  │
+        ▼                                  │
+   Variation detection                     │
+        │                                  │
+        ├──► datalake (table format) ──────┘  (same object-store substrate)
+        ├──► analytics store
+        └──► alerting / verdict sink
 ```
 
-MinIO is the single object-storage substrate, backing both Mimir blocks and the
-Iceberg datalake — one storage layer to secure, back up, and keep sovereign.
+A single object store (any S3-compatible backend) can serve as the substrate for
+both the metrics store's blocks and the datalake — one storage layer to secure
+and back up, whichever provider you choose.
 
 ## Detection mechanism
 
@@ -135,20 +143,19 @@ p | src.read() | Window() | RunInference(patchtst) | Detect() | *[s.write() for 
 Adding a connector = dropping one file with `@connector("name")`. The core and
 the pipeline never change. That openness is the point of having N connectors.
 
-## Sovereignty model
+## Deployment is independent of design
 
-Three tiers, to be explicit about what "sovereign" means here:
+The architecture is provider-agnostic: *where* it runs is a deployment choice
+layered on top, not a property of the core or the SPI. The same pipeline runs
+against a managed cloud, a self-hosted OSS stack, or a sovereign/EU provider by
+swapping connector config and the runner flag — no code change. See the
+deployment profiles in [CONNECTORS.md](./CONNECTORS.md).
 
-- **SecNumCloud-qualified** (OVHcloud select offers, Outscale/Dassault, Cloud
-  Temple): French/EU law, immune to extra-territorial reach.
-- **"Trusted cloud" but US tech under license** (S3NS = Thales+Google, Bleu =
-  Capgemini/Orange+Microsoft): excluded if strict immunity is the goal.
-- **Open-source self-hosted** (MinIO, Ceph, ClickHouse, Kafka, Mimir): maximum
-  sovereignty since we control the substrate; the operational debt is ours.
-
-Sovereignty is not only runtime: a data catalog (Nessie/Polaris) and lineage
-(OpenMetadata/DataHub) matter too, because proving *where data lives and who
-accesses it* is part of SecNumCloud / GDPR requirements.
+Each profile carries its own trade-offs (managed convenience vs operational
+debt, jurisdiction/compliance, cost). Sovereignty — e.g. SecNumCloud-qualified
+providers with no extra-territorial exposure, plus catalog/lineage to prove
+*where data lives and who accesses it* — is one such profile, selectable when
+required, never assumed.
 
 See [CONNECTORS.md](./CONNECTORS.md) for the plugin catalog and
 [ROADMAP.md](./ROADMAP.md) for milestones and open decisions.

@@ -32,7 +32,9 @@ real value — before investing in streaming ops.
 Once the SPI (M1.5) is frozen, each connector is a small, parallelizable PR:
 drop a file under `connectors/sources/` or `connectors/sinks/` with
 `@connector("name")` and pass the conformance suite. P0 connectors for the POC:
-**Mimir (C9a)** source and **MinIO/Iceberg (C11/C18)** sink.
+a metrics source (**Mimir, C9a**) and an **object-store + table-format** sink
+(**S3 API + Iceberg, C11/C18** — backend-agnostic). Other backends are added on
+demand, not upfront.
 
 ## Open decisions
 
