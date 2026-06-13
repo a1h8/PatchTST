@@ -44,8 +44,9 @@ demand, not upfront.
 | D2 | Mimir as sole ingress, or Kafka/OTLP in parallel for low-latency live? | TBD |
 | D3 | Plugin discovery: internal registry vs Python entry-points | ✅ **Internal registry** |
 | D4 | Pivot schema: univariate vs native multivariate | ✅ **Native multivariate** |
-| D5 | Datalake purpose: retraining vs analytics/compliance vs both | TBD |
+| D5 | Datalake purpose: retraining vs analytics/compliance vs both | ✅ **Knowledge base** — longitudinal signal history kube-verdict queries as RCA evidence |
 | D6 | Engine coupling: Beam in the contract vs engine-agnostic core | ✅ **Engine-agnostic** (ports & adapters): Local + Beam engines, Spark/Databricks next |
+| D7 | How kube-verdict consumes the knowledge base | ✅ **Structured datalake first** (`kb/`: SignalRecord + DuckDB query + `signal_history` API); semantic Weaviate face next; don't re-implement its detector |
 
 ## Scope note — SPI vs catalog
 
