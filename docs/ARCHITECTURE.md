@@ -90,12 +90,18 @@ INCIDENT : reconstruction drives the verdict; anticipation suspended (model OOD)
 WARN is cosmetic and detective alone is preferable.
 
 **Implementation status.** Detection is a pluggable `Detector` (`detection/`).
-Implemented today: `ZScoreDetector` — real statistical detection (z-score on the
-recent tail), matching kube-verdict's `zscore` method and severity bands. The
-PatchTST dual-detector above is the target and slots in behind the same
-interface without touching the pipeline. The write path is wired through the
-SPI: `MimirSource → make_detection_transform(detector) → signal-store sink`,
-runnable on `LocalEngine` (the K3s demo) or `BeamEngine`.
+Implemented today:
+- `ZScoreDetector` — real statistical detection (z-score on the recent tail),
+  matching kube-verdict's `zscore` method and severity bands;
+- `PatchTSTDetector` — the **forecast face** of D1: trains a small PatchTST
+  (HF `transformers`) on the early signal and scores the recent window by
+  forecast-error ratio (`method="patchtst"`), falling back to z-score for short
+  signals. torch/transformers are optional, lazy-imported.
+
+The **reconstruction face** (detective) and the NORMAL↔INCIDENT regime switch
+remain the target, behind the same `Detector` interface. The write path is wired
+through the SPI: `MimirSource → make_detection_transform(detector) →
+signal-store sink`, runnable on `LocalEngine` (the K3s demo) or `BeamEngine`.
 
 ## Connector SPI — open to N plugins
 

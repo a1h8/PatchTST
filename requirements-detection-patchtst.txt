@@ -1,0 +1,10 @@
+# PatchTST detector deps (optional — only needed for PatchTSTDetector).
+#
+#   pip install -r requirements-detection-patchtst.txt
+#
+# The pipeline and the ZScoreDetector need none of these; torch/transformers are
+# imported lazily inside PatchTSTDetector.detect so the package imports without
+# them. Training on the fly is compute-heavy — fit for periodic/scoped scoring.
+torch>=2.0
+transformers>=4.37
+numpy>=1.23
