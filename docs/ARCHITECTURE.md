@@ -2,9 +2,17 @@
 
 ## Goal
 
-Consolidate K8s metrics into a datalake and detect variations (anomalies /
-drift) on time-series using PatchTST, with unified batch and streaming
-processing. The design is provider-agnostic — deployment target (managed cloud,
+Aggregate time-series **signals** into a datalake and detect variations
+(anomalies / drift) using PatchTST, with unified batch and streaming processing.
+
+The core is **domain-agnostic**: it knows only generic signals — an entity, a
+metric, values over time (`PivotRow` / `SignalRecord` carry no domain-specific
+field). It therefore serves any time-series domain (infrastructure, IoT,
+application or business KPIs, …). **Kubernetes observability — feeding
+[kube-verdict](https://github.com/a1h8/kube-verdict) — is the reference
+application, not a constraint.**
+
+The design is also **provider-agnostic**: deployment target (managed cloud,
 self-hosted, or sovereign) is a configuration choice, not baked into the core.
 
 ## Core principle
