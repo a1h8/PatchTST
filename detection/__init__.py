@@ -8,12 +8,15 @@ from .aggregate import detect_signals, make_detection_transform
 from .detector import Detector, ZScoreDetector
 from .patchtst import PatchTSTDetector
 from .reconstruction import ReconstructionDetector
+from .regime import InMemoryRegimeState, RegimeSwitchDetector
 
 __all__ = [
     "Detector",
     "ZScoreDetector",
     "PatchTSTDetector",
     "ReconstructionDetector",
+    "RegimeSwitchDetector",
+    "InMemoryRegimeState",
     "detect_signals",
     "make_detection_transform",
 ]

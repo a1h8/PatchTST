@@ -101,11 +101,18 @@ Implemented today:
   reconstruction-error ratio (`method="patchtst-recon"`), the clean OOD signal
   during a break.
 
-Both fall back to z-score for short signals; torch/transformers are optional,
-lazy-imported. The **NORMAL↔INCIDENT regime switch** that composes the two faces
-remains the target, behind the same `Detector` interface. The write path is
-wired through the SPI: `MimirSource → make_detection_transform(detector) →
-signal-store sink`, runnable on `LocalEngine` (the K3s demo) or `BeamEngine`.
+- `RegimeSwitchDetector` — composes the two faces into D1's state machine:
+  forecast in NORMAL (anticipation), reconstruction in INCIDENT (detective),
+  switching to INCIDENT on a break (forecast residual → critical) and back on
+  recovery. Emits `labels["mode"]` (anticipation|detective) and
+  `labels["regime"]`; per-(entity, metric) state via a pluggable `RegimeState`.
+
+Detectors fall back to z-score for short signals; torch/transformers are
+optional, lazy-imported. **D1 is implemented end-to-end.** (Refinements left:
+anti-flapping/hysteresis on recovery, and seeding the regime from the knowledge
+base across separate batch runs.) The write path is wired through the SPI:
+`MimirSource → make_detection_transform(detector) → signal-store sink`, runnable
+on `LocalEngine` (the K3s demo) or `BeamEngine`.
 
 ## Connector SPI — open to N plugins
 
