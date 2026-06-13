@@ -7,10 +7,10 @@ for sinks. ``apache_beam`` is imported lazily so the core never needs it.
 """
 from __future__ import annotations
 
-from typing import Sequence
+from typing import Optional, Sequence
 
 from ..base import SinkConnector, SourceConnector
-from .base import Engine
+from .base import Engine, Transform
 
 
 class BeamEngine(Engine):
@@ -18,7 +18,10 @@ class BeamEngine(Engine):
         self._options = pipeline_options
 
     def run(
-        self, source: SourceConnector, sinks: Sequence[SinkConnector]
+        self,
+        source: SourceConnector,
+        sinks: Sequence[SinkConnector],
+        transform: Optional[Transform] = None,
     ) -> None:
         import apache_beam as beam
 
@@ -29,6 +32,15 @@ class BeamEngine(Engine):
                 if native_read is not None
                 else beam.Create(list(source.read()))
             )
+            if transform is not None:
+                # Iterable->Iterable transform (e.g. detection): gather the
+                # bundle, apply, fan back out. Batch-oriented; engine-native
+                # windowed detection is a later optimization.
+                pcoll = (
+                    pcoll
+                    | "ToListT" >> beam.combiners.ToList()
+                    | "Transform" >> beam.FlatMap(lambda rows: list(transform(rows)))
+                )
             for i, sink in enumerate(sinks):
                 native_write = sink.native_beam_write()
                 if native_write is not None:
