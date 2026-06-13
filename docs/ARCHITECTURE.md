@@ -95,12 +95,16 @@ Implemented today:
   matching kube-verdict's `zscore` method and severity bands;
 - `PatchTSTDetector` — the **forecast face** of D1: trains a small PatchTST
   (HF `transformers`) on the early signal and scores the recent window by
-  forecast-error ratio (`method="patchtst"`), falling back to z-score for short
-  signals. torch/transformers are optional, lazy-imported.
+  forecast-error ratio (`method="patchtst"`);
+- `ReconstructionDetector` — the **detective face** of D1: trains a
+  self-supervised PatchTST (masked-patch reconstruction) and scores by
+  reconstruction-error ratio (`method="patchtst-recon"`), the clean OOD signal
+  during a break.
 
-The **reconstruction face** (detective) and the NORMAL↔INCIDENT regime switch
-remain the target, behind the same `Detector` interface. The write path is wired
-through the SPI: `MimirSource → make_detection_transform(detector) →
+Both fall back to z-score for short signals; torch/transformers are optional,
+lazy-imported. The **NORMAL↔INCIDENT regime switch** that composes the two faces
+remains the target, behind the same `Detector` interface. The write path is
+wired through the SPI: `MimirSource → make_detection_transform(detector) →
 signal-store sink`, runnable on `LocalEngine` (the K3s demo) or `BeamEngine`.
 
 ## Connector SPI — open to N plugins
