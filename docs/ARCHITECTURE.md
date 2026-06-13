@@ -2,9 +2,17 @@
 
 ## Goal
 
-Consolidate K8s metrics into a datalake and detect variations (anomalies /
-drift) on time-series using PatchTST, with unified batch and streaming
-processing. The design is provider-agnostic — deployment target (managed cloud,
+Aggregate time-series **signals** into a datalake and detect variations
+(anomalies / drift) using PatchTST, with unified batch and streaming processing.
+
+The core is **domain-agnostic**: it knows only generic signals — an entity, a
+metric, values over time (`PivotRow` / `SignalRecord` carry no domain-specific
+field). It therefore serves any time-series domain (infrastructure, IoT,
+application or business KPIs, …). **Kubernetes observability — feeding
+[kube-verdict](https://github.com/a1h8/kube-verdict) — is the reference
+application, not a constraint.**
+
+The design is also **provider-agnostic**: deployment target (managed cloud,
 self-hosted, or sovereign) is a configuration choice, not baked into the core.
 
 ## Core principle
@@ -170,6 +178,48 @@ portable without sacrificing engine-native streaming where it matters.
 Trade-off (accepted): "plug any engine" is not free — each engine needs its
 adapter, and engine-native features are not portable for nothing. But the core,
 connectors, and detection logic are written once, engine-free.
+
+## Knowledge base — feeding kube-verdict (D7)
+
+This pipeline is the **signal-aggregation / knowledge-base layer** for
+[kube-verdict](https://github.com/a1h8/kube-verdict), an evidence-first K8s
+incident decision engine. The two are complementary, not duplicative:
+
+| | kube-verdict | this pipeline |
+|---|---|---|
+| When | reactive, per incident | continuous |
+| Scope | one entity in RCA | cluster-wide, longitudinal |
+| Output | point-in-time verdict / RCA | queryable **signal history** |
+
+We do **not** re-implement detection — kube-verdict already has
+`signals/patchtst_detector.py`. Our value is aggregating signals over time into a
+**queryable knowledge base** kube-verdict draws on as historical evidence.
+
+**Structured face (`kb/`, implemented).** Aggregated `SignalRecord`s (schema
+aligned with kube-verdict's `AnomalyResult`) are written as Parquet and queried
+by DuckDB. The store exposes the contract kube-verdict's `rca/context_builder`
+calls during RCA:
+
+```
+GET /api/v1/signals/history?entity=Pod/prod/api&metric=cpu_usage&since=..&until=..
+```
+
+This is "interrogate the service with a signal" — decoupled, touching neither
+kube-verdict's embedder nor its FAISS index. Backend is Parquet+DuckDB now
+(S3/Iceberg-ready), swappable for ClickHouse at scale behind the same interface.
+
+**Semantic face (planned).** A parallel vector store (Weaviate as a shared
+service, owning its vectorizer) for kube-verdict's RAG `example_lookup_node`.
+Kept separate from the structured face to avoid coupling to its hardcoded
+`all-MiniLM-L6-v2` FAISS index.
+
+**Write path goes through the SPI** — the store is exposed as a
+`@connector("signal-store")` `SinkConnector`, so signals are written via the
+normal connector cycle (`build → Engine.run → sink.write`), not a standalone
+write. **Read path** (`SignalStore.query` / the HTTP service) stays *outside*
+the SPI on purpose: it is request/response serving, not streaming dataflow.
+Optional secondary push: emit Alertmanager-format alerts to
+`/api/v1/webhook/alertmanager` to trigger RCA.
 
 ## Deployment is independent of design
 

@@ -1,0 +1,11 @@
+# Knowledge-base (signal store + query service) runtime deps.
+#
+#   pip install -r requirements-kb.txt
+#
+# Parquet datalake (write) + DuckDB (query) + FastAPI service exposing the
+# signal_history contract that kube-verdict's RCA queries.
+pyarrow>=14.0
+duckdb>=1.0
+fastapi>=0.110
+uvicorn>=0.29
+# httpx is required by fastapi.testclient for the test suite.
