@@ -7,7 +7,10 @@ HTTP app factory.
 from .signal import SignalRecord
 from .store import SignalStore
 
-__all__ = ["SignalRecord", "SignalStore", "create_app"]
+# Register the SPI sink façade (write path goes through the connector cycle).
+from .sink import SignalStoreSink  # noqa: E402
+
+__all__ = ["SignalRecord", "SignalStore", "SignalStoreSink", "create_app"]
 
 
 def create_app(store: SignalStore):

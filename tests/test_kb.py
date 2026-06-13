@@ -135,3 +135,43 @@ def test_signal_history_unknown_entity_empty(tmp_path):
     client = TestClient(create_app(store))
     body = client.get("/api/v1/signals/history", params={"entity": "Pod/prod/nope"}).json()
     assert body["count"] == 0 and body["signals"] == []
+
+
+# --- SPI sink façade (write path goes through the connector cycle) --------
+
+class _SignalSource:
+    """Engine-agnostic source yielding SignalRecords (duck-typed)."""
+
+    def __init__(self, rows):
+        self._rows = rows
+
+    def read(self):
+        return self._rows
+
+    def native_beam_read(self):
+        return None
+
+
+def test_signal_store_sink_registered_and_conforms():
+    import kb  # noqa: F401  (registers the sink)
+    from connectors import available, build
+    from connectors.conformance import assert_sink_contract
+
+    assert available()["signal-store"] == "sink"
+    sink = build("signal-store", root="/tmp/kb-x")
+    assert_sink_contract(sink)
+    assert sink.describe()["root"] == "/tmp/kb-x"
+
+
+def test_signal_store_sink_full_spi_cycle(tmp_path):
+    import kb  # noqa: F401
+    from connectors import LocalEngine, build
+
+    sink = build("signal-store", root=str(tmp_path / "kb"))
+    rows = [_rec("Pod/p/a", "cpu", 1000), _rec("Pod/p/a", "cpu", 2000)]
+
+    # build → Engine.run → sink.write — the SPI cycle, no standalone write
+    LocalEngine().run(_SignalSource(rows), [sink])
+
+    out = sink.store.query("Pod/p/a")
+    assert [r.ts for r in out] == [1000, 2000]

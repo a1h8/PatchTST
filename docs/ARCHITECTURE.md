@@ -205,9 +205,13 @@ service, owning its vectorizer) for kube-verdict's RAG `example_lookup_node`.
 Kept separate from the structured face to avoid coupling to its hardcoded
 `all-MiniLM-L6-v2` FAISS index.
 
-**Write path** = the aggregation pipeline (connectors + engines) feeding the
-store; **read path** = kube-verdict querying it. Optional secondary push: emit
-Alertmanager-format alerts to its `/api/v1/webhook/alertmanager` to trigger RCA.
+**Write path goes through the SPI** — the store is exposed as a
+`@connector("signal-store")` `SinkConnector`, so signals are written via the
+normal connector cycle (`build → Engine.run → sink.write`), not a standalone
+write. **Read path** (`SignalStore.query` / the HTTP service) stays *outside*
+the SPI on purpose: it is request/response serving, not streaming dataflow.
+Optional secondary push: emit Alertmanager-format alerts to
+`/api/v1/webhook/alertmanager` to trigger RCA.
 
 ## Deployment is independent of design
 
