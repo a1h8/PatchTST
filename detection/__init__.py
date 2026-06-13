@@ -6,10 +6,12 @@ and hand it to an engine: ``Engine.run(source, sinks, transform=...)``.
 """
 from .aggregate import detect_signals, make_detection_transform
 from .detector import Detector, ZScoreDetector
+from .patchtst import PatchTSTDetector
 
 __all__ = [
     "Detector",
     "ZScoreDetector",
+    "PatchTSTDetector",
     "detect_signals",
     "make_detection_transform",
 ]
