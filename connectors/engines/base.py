@@ -8,16 +8,23 @@ same pipeline plug into any engine.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Sequence
+from typing import Any, Callable, Iterable, Optional, Sequence
 
 from ..base import SinkConnector, SourceConnector
 
+# An optional stage applied between read and write: rows in, records out
+# (e.g. variation detection: Iterable[PivotRow] -> Iterable[SignalRecord]).
+Transform = Callable[[Iterable[Any]], Iterable[Any]]
+
 
 class Engine(ABC):
-    """Runs a source into one or more sinks on a concrete runtime."""
+    """Runs a source → (transform) → sinks flow on a concrete runtime."""
 
     @abstractmethod
     def run(
-        self, source: SourceConnector, sinks: Sequence[SinkConnector]
+        self,
+        source: SourceConnector,
+        sinks: Sequence[SinkConnector],
+        transform: Optional[Transform] = None,
     ) -> None:
-        """Read from ``source`` and write to every sink in ``sinks``."""
+        """Read from ``source``, optionally ``transform``, write to every sink."""
