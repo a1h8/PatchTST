@@ -1,0 +1,10 @@
+# Pipeline runner (the `python -m pipeline` CLI) — union of the layer deps,
+# plus YAML config support.
+#
+#   pip install -r requirements-pipeline.txt
+#
+-r requirements-connectors.txt
+-r requirements-kb.txt
+pyyaml>=6.0
+# PatchTST/Reconstruction detectors additionally need:
+#   pip install -r requirements-detection-patchtst.txt

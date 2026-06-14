@@ -1,0 +1,33 @@
+# Example pipeline config — run with:
+#   python -m pipeline config/pipeline.example.yaml
+#
+# Cycle: source (SPI) -> detection transform -> sinks (SPI), run by an engine.
+
+source:
+  type: mimir
+  params:
+    endpoint: http://mimir:9009
+    promql: 'rate(container_cpu_usage_seconds_total{container!="POD"}[5m])'
+    start: 0            # epoch seconds; compute now-window at deploy time
+    end: 0
+    step_s: 60
+    group_by: [pod, namespace]   # -> entity_uid
+
+# Detector: D1 regime switch (forecast in NORMAL, reconstruction in INCIDENT).
+# Needs torch/transformers (requirements-detection-patchtst.txt).
+# Swap for {type: zscore} for a dependency-free run.
+detector:
+  type: regime-switch
+  forecast:
+    type: patchtst
+  detective:
+    type: reconstruction
+
+# Knowledge base: aggregated signals queryable by kube-verdict (signal_history).
+sinks:
+  - type: signal-store
+    params:
+      root: /data/kb        # local path or s3://bucket/kb
+
+engine:
+  type: local              # local (K3s CronJob) | beam (Flink/Dataflow)
