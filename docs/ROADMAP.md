@@ -8,7 +8,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) and [CONNECTORS.md](./CONNECTORS.md).
 | Milestone | Deliverable | Priority |
 |-----------|-------------|----------|
 | **M0** | Frozen decisions (D1–D5 below) — gate before any code beyond M2 | ✅ D1/D3/D4 decided |
-| **M1** | PatchTST inference module decoupled from the training `Learner`, exposing **both heads**: `forecast(window)` and `reconstruct(window)`; RevIN normalization, checkpoint loaded once per worker | P0 |
+| **M1** | PatchTST inference module decoupled from the training `Learner`, exposing **both heads**: `forecast(window)` and `reconstruct(window)`; RevIN normalization, checkpoint loaded once per worker — *engine implemented (`inference/`), validated on synthetic checkpoints; real trained checkpoints + detector rebranch pending* | 🟡 engine done |
 | **M1.5** | **Connector SPI**: pivot schema + `SourceConnector`/`SinkConnector` contracts + `registry` + contract/conformance test suite — *implemented (PR #2), 100% coverage* | ✅ done |
 | **M2** | Beam batch skeleton on DirectRunner: source → windowing → sink, no model. Validates pivot schema end-to-end (dev/test only, never prod) | P0 |
 | **M3** | PatchTST in the pipeline via `RunInference` with a custom PyTorch `ModelHandler`: per-worker load, batching, device. Output enriched with **forecast residual + reconstruction error** | P0 |
