@@ -1,0 +1,9 @@
+# CSV -> Mimir/Prometheus remote-write ingestion deps (connectors/ingest/).
+#
+#   pip install -r requirements-ingest.txt
+#
+# Encoding and conversion are stdlib-only (the WriteRequest protobuf is
+# hand-encoded). Only an actual push needs snappy compression; --dry-run does
+# not. Either of these provides block-format snappy:
+python-snappy>=0.6   # needs the libsnappy system library
+# cramjam>=2.7        # alternative: pure wheels, no system library

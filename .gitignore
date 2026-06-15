@@ -175,7 +175,7 @@ ipython_config.py
 .LSOverride
 
 # Icon must end with two \r
-Icon
+Icon
 
 # Thumbnails
 ._*
@@ -467,3 +467,7 @@ $RECYCLE.BIN/
 # local virtualenv / coverage
 .venv/
 .coverage
+
+# downloaded datasets / trained checkpoints (artifacts, not source)
+dataset/
+saved_models/
