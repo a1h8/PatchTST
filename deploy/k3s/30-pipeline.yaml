@@ -1,0 +1,82 @@
+# Detection pipeline as a CronJob (the `engine: local` deployment target).
+#
+# Each tick: read the last hour of `sim_*` metrics from Mimir, run the detector,
+# write aggregated SignalRecords to the KB datalake. The runner takes static
+# start/end, so the rolling window is computed at runtime and substituted into
+# the mounted config (placeholders __START__/__END__).
+#
+# Detector is `zscore` (dependency-free). For PatchTST/reconstruction, build the
+# image with --build-arg INSTALL_TORCH=1 and swap the `detector:` block.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pipeline-config
+  namespace: patchtst
+data:
+  pipeline.yaml: |
+    source:
+      type: mimir
+      params:
+        endpoint: http://mimir-gateway.patchtst.svc.cluster.local:80
+        promql: '{__name__=~"sim_.+"}'
+        start: __START__          # epoch seconds, filled in at runtime
+        end: __END__
+        step_s: 60
+        group_by: [pod, namespace]
+        channel_label: __name__
+    detector:
+      type: zscore
+    sinks:
+      - type: signal-store
+        params:
+          root: /data/kb
+    engine:
+      type: local
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pipeline
+  namespace: patchtst
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: pipeline
+              image: patchtst-pipeline:dev
+              imagePullPolicy: IfNotPresent
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -e
+                  END=$(date +%s); START=$((END - 3600))
+                  sed "s/__START__/$START/; s/__END__/$END/" \
+                    /config/pipeline.yaml > /tmp/pipeline.yaml
+                  exec python -m pipeline /tmp/pipeline.yaml
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  memory: 1Gi
+              volumeMounts:
+                - name: config
+                  mountPath: /config
+                  readOnly: true
+                - name: datalake
+                  mountPath: /data/kb
+          volumes:
+            - name: config
+              configMap:
+                name: pipeline-config
+            - name: datalake
+              persistentVolumeClaim:
+                claimName: kb-datalake

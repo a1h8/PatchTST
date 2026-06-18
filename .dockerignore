@@ -1,0 +1,16 @@
+# Keep the build context small: the image only needs the connector/pipeline code.
+.git
+.claude
+**/__pycache__
+*.pyc
+.pytest_cache
+.venv
+venv
+dataset
+PatchTST_supervised
+PatchTST_self_supervised
+pic
+*.md
+!README.md
+deploy
+tests

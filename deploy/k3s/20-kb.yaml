@@ -1,0 +1,92 @@
+# Knowledge-base datalake (shared) + KB HTTP service.
+#
+# The pipeline CronJob WRITES SignalRecords (Parquet) to this PVC; the KB
+# service READS it and serves kube-verdict's RCA queries. On single-node k3s
+# both pods land on the same node, so the default local-path RWO PVC is shared
+# between them.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kb-datalake
+  namespace: patchtst
+spec:
+  accessModes: ["ReadWriteOnce"]   # local-path (k3s default provisioner)
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kb
+  namespace: patchtst
+  labels:
+    app: kb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kb
+  # Recreate, not RollingUpdate: a rolling second pod cannot co-mount the RWO
+  # PVC, so it would deadlock on startup.
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: kb
+    spec:
+      containers:
+        - name: kb
+          image: patchtst-pipeline:dev
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "kb"]
+          env:
+            - name: KB_ROOT
+              value: /data/kb
+            - name: KB_PORT
+              value: "8080"
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          volumeMounts:
+            - name: datalake
+              mountPath: /data/kb
+      volumes:
+        - name: datalake
+          persistentVolumeClaim:
+            claimName: kb-datalake
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kb
+  namespace: patchtst
+  labels:
+    app: kb
+spec:
+  selector:
+    app: kb
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+  # kube-verdict reaches this at http://kb.patchtst.svc.cluster.local/api/v1/signals/history

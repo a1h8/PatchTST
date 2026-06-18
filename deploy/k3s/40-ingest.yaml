@@ -1,0 +1,54 @@
+# One-shot ingest Job: seed Mimir with synthetic `sim_*` metrics so the pipeline
+# has something to detect. Stands in for "Prometheus scrape + remote-write" —
+# the CSV is generated in-pod (no big ConfigMap) with a CPU spike near the end
+# so the zscore detector fires. Re-run with `kubectl create job --from=...`.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ingest-seed
+  namespace: patchtst
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: ingest
+          image: patchtst-pipeline:dev
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              python - <<'PY'
+              import csv, math, random
+              # 60 points, 60s apart; cpu baseline ~0.2 with a spike to ~0.95,
+              # mem a slow ramp. Timestamps are relative seconds; --end-at-now
+              # shifts the latest sample to "now" while preserving spacing.
+              random.seed(7)
+              with open("/tmp/sim.csv", "w", newline="") as f:
+                  w = csv.writer(f)
+                  w.writerow(["ts", "cpu", "mem"])
+                  for i in range(60):
+                      ts = i * 60
+                      cpu = 0.2 + random.gauss(0, 0.02)
+                      if 50 <= i <= 54:           # injected anomaly
+                          cpu = 0.95 + random.gauss(0, 0.01)
+                      mem = 0.4 + 0.004 * i + random.gauss(0, 0.01)
+                      w.writerow([ts, round(cpu, 4), round(mem, 4)])
+              PY
+              exec python -m connectors.ingest \
+                --csv /tmp/sim.csv \
+                --endpoint http://mimir-gateway.patchtst.svc.cluster.local:80 \
+                --instance node1 \
+                --metric-prefix sim_ \
+                --label namespace=demo \
+                --label pod=node1 \
+                --end-at-now
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 256Mi

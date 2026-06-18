@@ -1,0 +1,85 @@
+# Grafana Mimir (mimir-distributed) deployed via k3s' built-in Helm controller.
+#
+# k3s ships a helm-controller that reconciles HelmChart CRs — no `helm` CLI
+# needed on the cluster. The CR lives in kube-system (where the controller
+# runs) and installs into the `patchtst` namespace.
+#
+# These values are a SINGLE-NODE / dev footprint: one replica per component,
+# zone-aware replication OFF (it otherwise demands 3 topology zones),
+# replication_factor=1, and the bundled MinIO for object storage. They track
+# mimir-distributed chart 5.x — after a version bump, validate with:
+#   helm template mimir grafana/mimir-distributed --version <v> -f <these-values>
+#
+# The gateway Service `mimir-gateway.patchtst.svc` (port 80) fronts BOTH paths
+# our code uses: remote-write `/api/v1/push` and reads `/prometheus/api/v1/...`.
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: mimir
+  namespace: kube-system
+spec:
+  repo: https://grafana.github.io/helm-charts
+  chart: mimir-distributed
+  version: "5.5.1"
+  targetNamespace: patchtst
+  createNamespace: false
+  valuesContent: |-
+    mimir:
+      structuredConfig:
+        ingester:
+          ring:
+            replication_factor: 1
+        # Permissive limits so a demo ingest is not throttled.
+        limits:
+          out_of_order_time_window: 1h
+    metaMonitoring:
+      serviceMonitor:
+        enabled: false
+    rollout_operator:
+      enabled: false
+    minio:
+      enabled: true
+      mode: standalone
+      replicas: 1
+      persistence:
+        size: 5Gi
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+    alertmanager:
+      replicas: 1
+      zoneAwareReplication:
+        enabled: false
+      persistentVolume:
+        enabled: false
+    distributor:
+      replicas: 1
+    ingester:
+      replicas: 1
+      zoneAwareReplication:
+        enabled: false
+      persistentVolume:
+        size: 2Gi
+    querier:
+      replicas: 1
+    query_frontend:
+      replicas: 1
+    query_scheduler:
+      replicas: 1
+    store_gateway:
+      replicas: 1
+      zoneAwareReplication:
+        enabled: false
+      persistentVolume:
+        size: 2Gi
+    compactor:
+      persistentVolume:
+        size: 2Gi
+    ruler:
+      replicas: 1
+    overrides_exporter:
+      replicas: 1
+    gateway:
+      replicas: 1
+      enabledNonEnterprise: true
