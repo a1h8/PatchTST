@@ -54,6 +54,17 @@ def test_build_detector_regime_switch_nested():
     assert isinstance(d, RegimeSwitchDetector)
     assert isinstance(d.forecast, PatchTSTDetector)
     assert isinstance(d.detective, ReconstructionDetector)
+    assert d.enter_after == 1 and d.exit_after == 1   # defaults
+
+
+def test_build_detector_regime_switch_forwards_anti_flapping_params():
+    d = build_detector({
+        "type": "regime-switch",
+        "forecast": {"type": "patchtst"},
+        "detective": {"type": "reconstruction"},
+        "params": {"enter_after": 3, "exit_after": 2},
+    })
+    assert d.enter_after == 3 and d.exit_after == 2
 
 
 def test_build_detector_unknown_raises():

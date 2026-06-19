@@ -13,7 +13,7 @@ from .inference_detector import (
 )
 from .patchtst import PatchTSTDetector
 from .reconstruction import ReconstructionDetector
-from .regime import InMemoryRegimeState, RegimeSwitchDetector
+from .regime import InMemoryRegimeState, RegimeStatus, RegimeSwitchDetector
 
 __all__ = [
     "Detector",
@@ -25,6 +25,7 @@ __all__ = [
     "clear_engine_cache",
     "RegimeSwitchDetector",
     "InMemoryRegimeState",
+    "RegimeStatus",
     "detect_signals",
     "make_detection_transform",
 ]
