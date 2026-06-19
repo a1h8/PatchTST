@@ -49,9 +49,11 @@ def build_detector(cfg: dict) -> Detector:
     """Build a Detector from config (recursive for regime-switch)."""
     kind = cfg["type"]
     if kind == "regime-switch":
+        # params carry the anti-flapping knobs: enter_after / exit_after.
         return RegimeSwitchDetector(
             forecast=build_detector(cfg["forecast"]),
             detective=build_detector(cfg["detective"]),
+            **cfg.get("params", {}),
         )
     try:
         cls = _DETECTORS[kind]

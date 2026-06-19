@@ -1,7 +1,7 @@
 """RegimeSwitchDetector tests — deterministic state machine with stub
 detectors (no torch). Verifies which face runs, the NORMAL↔INCIDENT
 transitions, and the mode/regime annotations."""
-from detection import InMemoryRegimeState, RegimeSwitchDetector
+from detection import InMemoryRegimeState, RegimeStatus, RegimeSwitchDetector
 from detection.detector import Detector
 from kb.signal import SignalRecord
 
@@ -97,3 +97,57 @@ def test_regime_is_independent_per_entity_metric():
     b = d.detect("Pod/b", "cpu", [0.0], 0)      # independent key, still NORMAL
     assert a.labels["regime"] == "incident"
     assert b.labels["regime"] == "normal"
+
+
+# --- anti-flapping: debounce on entry (enter_after) -----------------------
+
+def _regimes(d, n):
+    return [_detect(d, ts=i).labels["regime"] for i in range(n)]
+
+
+def test_enter_after_needs_consecutive_criticals():
+    fc = FakeDetector("patchtst", ["critical", "critical"])
+    dt = FakeDetector("patchtst-recon", ["normal"])
+    d = RegimeSwitchDetector(forecast=fc, detective=dt, enter_after=2)
+    # one critical is not enough; the second consecutive one flips to INCIDENT
+    assert _regimes(d, 2) == ["normal", "incident"]
+    assert len(dt.calls) == 0   # detective never ran while still NORMAL
+
+
+def test_enter_streak_resets_on_non_critical():
+    fc = FakeDetector("patchtst", ["critical", "normal", "critical"])
+    dt = FakeDetector("patchtst-recon", ["normal"])
+    d = RegimeSwitchDetector(forecast=fc, detective=dt, enter_after=2)
+    # critical, then normal (resets the streak), then a lone critical → never enters
+    assert _regimes(d, 3) == ["normal", "normal", "normal"]
+
+
+# --- anti-flapping: debounce on exit (exit_after) -------------------------
+
+def test_exit_after_needs_consecutive_normals():
+    fc = FakeDetector("patchtst", ["critical"])              # clamps → enters once
+    dt = FakeDetector("patchtst-recon", ["normal", "normal"])
+    d = RegimeSwitchDetector(forecast=fc, detective=dt, exit_after=2)
+    # enter on tick0; one normal holds INCIDENT; the second consecutive recovers
+    assert _regimes(d, 3) == ["incident", "incident", "normal"]
+
+
+def test_exit_streak_resets_on_non_normal():
+    fc = FakeDetector("patchtst", ["critical"])
+    dt = FakeDetector("patchtst-recon", ["normal", "warning", "normal"])
+    d = RegimeSwitchDetector(forecast=fc, detective=dt, exit_after=2)
+    # enter; normal (streak 1); warning (reset); normal (streak 1) → never recovers
+    assert _regimes(d, 4) == ["incident", "incident", "incident", "incident"]
+
+
+# --- state carries the debounce streak ------------------------------------
+
+def test_regime_status_default_and_backward_compat_get_set():
+    st = InMemoryRegimeState()
+    assert st.get_status(("e", "m")) == RegimeStatus("normal", 0)
+    assert st.get(("e", "m")) == "normal"                 # string view unchanged
+    st.set(("e", "m"), "incident")                        # set resets streak
+    assert st.get(("e", "m")) == "incident"
+    assert st.get_status(("e", "m")) == RegimeStatus("incident", 0)
+    st.set_status(("e", "m"), RegimeStatus("incident", 3))
+    assert st.get_status(("e", "m")).streak == 3
