@@ -11,6 +11,10 @@ Config shape (dict / YAML / JSON):
                detective: {type: reconstruction}}
     sinks:    [{type: signal-store, params: {root: ...}}]
     engine:   {type: local}        # or beam
+
+The ``patchtst-infer`` / ``reconstruction-infer`` detectors run the load-once M1
+engine instead of training on the fly; both take ``params: {forecast_ckpt,
+reconstruct_ckpt, spec}`` and, sharing those checkpoints, share one loaded engine.
 """
 from __future__ import annotations
 
@@ -23,8 +27,10 @@ from connectors import LocalEngine, build
 from connectors.engines.base import Engine
 from detection import (
     Detector,
+    ForecastInferenceDetector,
     PatchTSTDetector,
     ReconstructionDetector,
+    ReconstructionInferenceDetector,
     RegimeSwitchDetector,
     ZScoreDetector,
     make_detection_transform,
@@ -34,6 +40,8 @@ _DETECTORS: dict[str, type[Detector]] = {
     "zscore": ZScoreDetector,
     "patchtst": PatchTSTDetector,
     "reconstruction": ReconstructionDetector,
+    "patchtst-infer": ForecastInferenceDetector,
+    "reconstruction-infer": ReconstructionInferenceDetector,
 }
 
 
