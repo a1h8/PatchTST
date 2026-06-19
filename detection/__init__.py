@@ -6,6 +6,11 @@ and hand it to an engine: ``Engine.run(source, sinks, transform=...)``.
 """
 from .aggregate import detect_signals, make_detection_transform
 from .detector import Detector, ZScoreDetector
+from .inference_detector import (
+    ForecastInferenceDetector,
+    ReconstructionInferenceDetector,
+    clear_engine_cache,
+)
 from .patchtst import PatchTSTDetector
 from .reconstruction import ReconstructionDetector
 from .regime import InMemoryRegimeState, RegimeSwitchDetector
@@ -15,6 +20,9 @@ __all__ = [
     "ZScoreDetector",
     "PatchTSTDetector",
     "ReconstructionDetector",
+    "ForecastInferenceDetector",
+    "ReconstructionInferenceDetector",
+    "clear_engine_cache",
     "RegimeSwitchDetector",
     "InMemoryRegimeState",
     "detect_signals",
