@@ -1,16 +1,98 @@
-# PatchTST (ICLR 2023)
+# PatchTST Temporal Evidence Layer for KubeVerdict
 
-### This is an offical implementation of PatchTST: [A Time Series is Worth 64 Words: Long-term Forecasting with Transformers](https://arxiv.org/abs/2211.14730). 
+This repository is a fork of the official PatchTST implementation:
+*"A Time Series is Worth 64 Words: Long-term Forecasting with Transformers"* — ICLR 2023.
 
-:triangular_flag_on_post: Our model has been included in [GluonTS](https://github.com/awslabs/gluonts). Special thanks to the contributor @[kashif](https://github.com/kashif)!
+This fork adapts PatchTST into an operational **temporal evidence** pipeline for KubeVerdict.
 
-:triangular_flag_on_post: Our model has been included in [NeuralForecast](https://github.com/Nixtla/neuralforecast). Special thanks to the contributor @[kdgutier](https://github.com/kdgutier) and @[cchallu](https://github.com/cchallu)!
+It does **not** replace Kubernetes RCA and does **not** claim autonomous incident
+prediction. It produces temporal variation signals — forecast residuals,
+reconstruction errors, z-score fallbacks and regime transitions — that can
+**strengthen or weaken** evidence-ranked RCA hypotheses in KubeVerdict.
 
-:triangular_flag_on_post: Our model has been included in [timeseriesAI(tsai)](https://github.com/timeseriesAI/tsai/blob/main/tutorial_nbs/15_PatchTST_a_new_transformer_for_LTSF.ipynb). Special thanks to the contributor @[oguiza](https://github.com/oguiza)!
+> **Current status:** the operational pipeline is designed and partially
+> implemented with **synthetic or fixture-based** time-series scenarios. Real
+> Prometheus-backed telemetry integration is the next validation step before
+> claiming production-grade temporal evidence.
 
-We offer a video that provides a concise overview of our paper for individuals seeking a rapid comprehension of its contents: https://www.youtube.com/watch?v=Z3-NrohddJw
+**Value added in this fork:**
 
+- connector interfaces
+- detection pipeline
+- inference wrappers
+- reconstruction-based anomaly signals
+- fallback detectors
+- k3s deployment assets
+- KubeVerdict integration path
 
+How the two faces work together: a regime-switching state machine runs the
+**forecast** face in the NORMAL regime (residuals surface slow saturation before
+it breaks — disk / memory / quota fill, latency drift) and the **reconstruction**
+face in the INCIDENT regime (reconstruction error is the clean out-of-distribution
+signal during the break), with adaptive thresholds, per-entity aggregation and
+anti-flapping on top.
+
+### Repository layout
+
+| Component | Path | Role |
+|-----------|------|------|
+| Connector SPI | [`connectors/`](./connectors) | engine-agnostic source/sink contracts + registry (Mimir source, signal-store sink) |
+| Detection | [`detection/`](./detection) | `ZScoreDetector`, PatchTST forecast / reconstruction detectors, `RegimeSwitchDetector`, adaptive thresholds, entity aggregation |
+| Inference | [`inference/`](./inference) | PatchTST inference decoupled from training: forecast + reconstruct heads, checkpoint loaded once per worker |
+| Knowledge base | [`kb/`](./kb) | `SignalRecord` + Parquet/DuckDB store + `signal_history` query API (RCA evidence for KubeVerdict) |
+| Pipeline | [`pipeline/`](./pipeline) | config-driven runner: source → detection → signal-store |
+| Deployment | [`deploy/k3s/`](./deploy/k3s) | k3s manifests for the full simulation loop |
+| Tests | [`tests/`](./tests) | contract/conformance + detection / inference / KB suites |
+
+Design and plan: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) ·
+[`docs/ROADMAP.md`](./docs/ROADMAP.md) · [`docs/CONNECTORS.md`](./docs/CONNECTORS.md).
+
+## Upstream attribution
+
+This project is based on the official PatchTST implementation by Yuqi Nie et al.
+
+- Original repository: <https://github.com/yuqinie98/PatchTST>
+- Paper: *"A Time Series is Worth 64 Words: Long-term Forecasting with Transformers"* — ICLR 2023 (<https://arxiv.org/abs/2211.14730>)
+
+The original work is licensed under **Apache-2.0**. This fork keeps the original
+license ([`LICENSE`](./LICENSE)) and citation while adding operational components
+for temporal incident evidence in KubeVerdict. The unmodified upstream model code
+lives in [`PatchTST_supervised/`](./PatchTST_supervised) and
+[`PatchTST_self_supervised/`](./PatchTST_self_supervised).
+
+### Citation
+
+If you use the PatchTST model, please cite the original authors:
+
+```
+@inproceedings{Yuqietal-2023-PatchTST,
+  title     = {A Time Series is Worth 64 Words: Long-term Forecasting with Transformers},
+  author    = {Nie, Yuqi and
+               H. Nguyen, Nam and
+               Sinthong, Phanwadee and
+               Kalagnanam, Jayant},
+  booktitle = {International Conference on Learning Representations},
+  year      = {2023}
+}
+```
+
+---
+
+# Upstream: PatchTST (ICLR 2023)
+
+*The following is the original PatchTST project documentation, preserved from
+upstream.*
+
+This is the official implementation of PatchTST:
+[A Time Series is Worth 64 Words: Long-term Forecasting with Transformers](https://arxiv.org/abs/2211.14730).
+
+:triangular_flag_on_post: The model is included in [GluonTS](https://github.com/awslabs/gluonts). Special thanks to the contributor @[kashif](https://github.com/kashif)!
+
+:triangular_flag_on_post: The model is included in [NeuralForecast](https://github.com/Nixtla/neuralforecast). Special thanks to the contributors @[kdgutier](https://github.com/kdgutier) and @[cchallu](https://github.com/cchallu)!
+
+:triangular_flag_on_post: The model is included in [timeseriesAI(tsai)](https://github.com/timeseriesAI/tsai/blob/main/tutorial_nbs/15_PatchTST_a_new_transformer_for_LTSF.ipynb). Special thanks to the contributor @[oguiza](https://github.com/oguiza)!
+
+A video providing a concise overview of the paper: https://www.youtube.com/watch?v=Z3-NrohddJw
 
 ## Key Designs
 
@@ -31,7 +113,7 @@ on MAE, while PatchTST/42 attains a overall **20.2%** reduction on MSE and **16.
 
 ### Self-supervised Learning
 
-We do comparison with other supervised and self-supervised models, and self-supervised PatchTST is able to outperform all the baselines. 
+We do comparison with other supervised and self-supervised models, and self-supervised PatchTST is able to outperform all the baselines.
 
 ![alt text](https://github.com/yuqinie98/PatchTST/blob/main/pic/table4.png)
 
@@ -43,13 +125,13 @@ We also test the capability of transfering the pre-trained model to downstream t
 
 ## Efficiency on Long Look-back Windows
 
-Our PatchTST consistently <ins>reduces the MSE scores as the look-back window increases</ins>, which confirms our model’s capability to learn from longer receptive field.
+PatchTST consistently <ins>reduces the MSE scores as the look-back window increases</ins>, which confirms the model’s capability to learn from longer receptive field.
 
 ![alt text](https://github.com/yuqinie98/PatchTST/blob/main/pic/varying_L.png)
 
-## Getting Started
+## Getting Started (upstream model)
 
-We seperate our codes for supervised learning and self-supervised learning into 2 folders: ```PatchTST_supervised``` and ```PatchTST_self_supervised```. Please choose the one that you want to work with.
+The codes for supervised learning and self-supervised learning are in 2 folders: ```PatchTST_supervised``` and ```PatchTST_self_supervised```. Please choose the one that you want to work with.
 
 ### Supervised Learning
 
@@ -73,15 +155,15 @@ You can adjust the hyperparameters based on your needs (e.g. different patch len
 python patchtst_pretrain.py --dset ettm1 --mask_ratio 0.4
 ```
 The model will be saved to the saved_model folder for the downstream tasks. There are several other parameters can be set in the patchtst_pretrain.py script.
- 
- 3. Fine-tuning: The script patchtst_finetune.py is for fine-tuning step. Either linear_probing or fine-tune the entire network can be applied.
+
+3. Fine-tuning: The script patchtst_finetune.py is for fine-tuning step. Either linear_probing or fine-tune the entire network can be applied.
 ```
 python patchtst_finetune.py --dset ettm1 --pretrained_model <model_name>
 ```
 
 ## Acknowledgement
 
-We appreciate the following github repo very much for the valuable code base and datasets:
+We appreciate the following github repos very much for the valuable code base and datasets:
 
 https://github.com/cure-lab/LTSF-Linear
 
@@ -97,23 +179,6 @@ https://github.com/ts-kim/RevIN
 
 https://github.com/timeseriesAI/tsai
 
-## Contact
+## Contact (upstream authors)
 
-If you have any questions or concerns, please contact us: ynie@princeton.edu or nnguyen@us.ibm.com or submit an issue
-
-## Citation
-
-If you find this repo useful in your research, please consider citing our paper as follows:
-
-```
-@inproceedings{Yuqietal-2023-PatchTST,
-  title     = {A Time Series is Worth 64 Words: Long-term Forecasting with Transformers},
-  author    = {Nie, Yuqi and
-               H. Nguyen, Nam and
-               Sinthong, Phanwadee and 
-               Kalagnanam, Jayant},
-  booktitle = {International Conference on Learning Representations},
-  year      = {2023}
-}
-```
-
+For questions about the PatchTST model/paper: ynie@princeton.edu or nnguyen@us.ibm.com, or submit an issue.
