@@ -118,18 +118,49 @@ class SignalStore:
         finally:
             con.close()
 
-        return [
-            SignalRecord(
-                entity_uid=r[0],
-                metric_name=r[1],
-                ts=int(r[2]),
-                severity=r[3],
-                score=float(r[4]),
-                method=r[5],
-                horizon=r[6] or "",
-                n_points=int(r[7]),
-                labels=json.loads(r[8] or "{}"),
-                text=r[9] or "",
-            )
-            for r in rows
-        ]
+        return [self._row_to_record(r) for r in rows]
+
+    def latest(self, entity_uid: str, metric: str | None = None) -> SignalRecord | None:
+        """The most recent signal for an entity (optionally a metric), or None.
+
+        Used to seed cross-batch state (e.g. the regime state machine) from the
+        last persisted assessment — see ``detection.KBSeededRegimeState``.
+        """
+        import duckdb
+
+        files = sorted(glob.glob(os.path.join(self.root, "*.parquet")))
+        if not files:
+            return None
+
+        conds = ["entity_uid = ?"]
+        params: list = [entity_uid]
+        if metric is not None:
+            conds.append("metric_name = ?")
+            params.append(metric)
+
+        sql = (
+            f"SELECT {', '.join(_COLUMNS)} FROM read_parquet(?) "
+            f"WHERE {' AND '.join(conds)} ORDER BY ts DESC LIMIT 1"
+        )
+        con = duckdb.connect()
+        try:
+            rows = con.execute(sql, [files, *params]).fetchall()
+        finally:
+            con.close()
+
+        return self._row_to_record(rows[0]) if rows else None
+
+    @staticmethod
+    def _row_to_record(r) -> SignalRecord:
+        return SignalRecord(
+            entity_uid=r[0],
+            metric_name=r[1],
+            ts=int(r[2]),
+            severity=r[3],
+            score=float(r[4]),
+            method=r[5],
+            horizon=r[6] or "",
+            n_points=int(r[7]),
+            labels=json.loads(r[8] or "{}"),
+            text=r[9] or "",
+        )

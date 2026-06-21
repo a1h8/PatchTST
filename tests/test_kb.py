@@ -96,6 +96,35 @@ def test_store_query_limit(tmp_path):
     assert [r.ts for r in store.query("Pod/p/a", limit=2)] == [1000, 2000]
 
 
+def test_store_latest_returns_most_recent(tmp_path):
+    store = SignalStore(str(tmp_path / "kb"))
+    store.write([
+        _rec("Pod/p/a", "cpu", 1000, severity="normal", score=0.1),
+        _rec("Pod/p/a", "cpu", 3000, severity="critical", score=4.0, labels={"regime": "incident"}),
+        _rec("Pod/p/a", "cpu", 2000, severity="warning", score=2.0),
+    ])
+    latest = store.latest("Pod/p/a", metric="cpu")
+    assert latest.ts == 3000 and latest.severity == "critical"
+    assert latest.labels["regime"] == "incident"
+
+
+def test_store_latest_filters_by_metric(tmp_path):
+    store = SignalStore(str(tmp_path / "kb"))
+    store.write([
+        _rec("Pod/p/a", "cpu", 5000),
+        _rec("Pod/p/a", "mem", 9000, severity="critical", score=3.0),
+    ])
+    assert store.latest("Pod/p/a", metric="cpu").ts == 5000   # mem (newer) ignored
+    assert store.latest("Pod/p/a").ts == 9000                 # no metric filter → newest
+
+
+def test_store_latest_empty_and_unknown_return_none(tmp_path):
+    store = SignalStore(str(tmp_path / "kb"))
+    assert store.latest("Pod/p/a") is None                    # no partitions yet
+    store.write([_rec("Pod/p/a", "cpu", 1000)])
+    assert store.latest("Pod/p/nope") is None                 # unknown entity
+
+
 def test_store_query_across_partitions_and_labels(tmp_path):
     store = SignalStore(str(tmp_path / "kb"))
     store.write([_rec("Pod/p/a", "cpu", 1000, labels={"team": "x"})])
