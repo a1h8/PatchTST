@@ -1,0 +1,13 @@
+# Apply the whole stack with:  kubectl apply -k deploy/k3s
+#
+# No global `namespace:` override here on purpose: the Mimir HelmChart CR must
+# stay in kube-system (where k3s' helm-controller runs); everything else is
+# already pinned to the `patchtst` namespace.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - 00-namespace.yaml
+  - 10-mimir.yaml
+  - 20-kb.yaml
+  - 30-pipeline.yaml
+  - 40-ingest.yaml
