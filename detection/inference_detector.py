@@ -32,6 +32,7 @@ from inference import ModelSpec
 from kb.signal import SignalRecord
 
 from .detector import Detector, ZScoreDetector
+from .threshold import FixedThreshold, ThresholdPolicy, build_threshold
 
 log = logging.getLogger(__name__)
 
@@ -74,6 +75,10 @@ class _InferenceDetector(Detector):
     worker that loaded it once) *or* ``(forecast_ckpt, reconstruct_ckpt, spec)``
     to lazy-load and cache one. ``spec`` may be a plain dict (parsed YAML); it is
     coerced to :class:`ModelSpec`.
+
+    ``threshold`` is the score→severity policy (M4): a :class:`ThresholdPolicy`,
+    a config dict (``{type: mad, params: {...}}``), or ``None`` for a fixed cut at
+    ``warning``/``critical`` (behaviour-preserving default).
     """
 
     forecast_ckpt: str | None = None
@@ -82,6 +87,7 @@ class _InferenceDetector(Detector):
     device: str = "cpu"
     warning: float = 1.8
     critical: float = 3.0
+    threshold: ThresholdPolicy | dict | None = None
     engine: object | None = None
     fallback: Detector = field(default_factory=ZScoreDetector)
 
@@ -91,6 +97,10 @@ class _InferenceDetector(Detector):
     def __post_init__(self) -> None:
         if isinstance(self.spec, dict):
             self.spec = ModelSpec.from_dict(self.spec)
+        if isinstance(self.threshold, dict):
+            self.threshold = build_threshold(self.threshold)
+        if self.threshold is None:
+            self.threshold = FixedThreshold(self.warning, self.critical)
 
     # ---- engine access ------------------------------------------------------
 
@@ -124,13 +134,6 @@ class _InferenceDetector(Detector):
 
     # ---- Detector interface -------------------------------------------------
 
-    def _severity(self, score: float) -> str:
-        if score >= self.critical:
-            return "critical"
-        if score >= self.warning:
-            return "warning"
-        return "normal"
-
     def detect(
         self,
         entity_uid: str,
@@ -143,11 +146,12 @@ class _InferenceDetector(Detector):
         if len(v) >= self._min_points(self._model_spec()):
             try:
                 score = self._score(self._get_engine(), v)
+                severity = self.threshold.classify((entity_uid, metric_name), score)
                 return SignalRecord(
                     entity_uid=entity_uid,
                     metric_name=metric_name,
                     ts=ts,
-                    severity=self._severity(score),
+                    severity=severity,
                     score=round(float(score), 4),
                     method=self.method,
                     n_points=int(len(v)),
