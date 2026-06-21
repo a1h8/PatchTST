@@ -12,7 +12,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) and [CONNECTORS.md](./CONNECTORS.md).
 | **M1.5** | **Connector SPI**: pivot schema + `SourceConnector`/`SinkConnector` contracts + `registry` + contract/conformance test suite — *implemented (PR #2), 100% coverage* | ✅ done |
 | **M2** | Beam batch skeleton on DirectRunner: source → windowing → sink, no model. Validates pivot schema end-to-end (dev/test only, never prod) | P0 |
 | **M3** | PatchTST in the pipeline via `RunInference` with a custom PyTorch `ModelHandler`: per-worker load, batching, device. Output enriched with **forecast residual + reconstruction error** | P0 |
-| **M4** | **Regime-switching detection** per `group_id` (NORMAL→INCIDENT state machine): forecast anticipation (early WARN, `h ≤ remediation time`) in NORMAL, reconstruction detective verdict in INCIDENT; adaptive thresholds (rolling quantile / MAD), per-channel residual aggregation, anti-flapping | P0 |
+| **M4** | **Regime-switching detection** per `group_id` (NORMAL→INCIDENT state machine): forecast anticipation (early WARN, `h ≤ remediation time`) in NORMAL, reconstruction detective verdict in INCIDENT; adaptive thresholds (rolling quantile / MAD), per-channel residual aggregation, anti-flapping — *state machine (#9), anti-flapping (#16), adaptive thresholds (#17), entity aggregation (#18), KB-seeded regime state (#19)* | ✅ done |
 | **M5** | Streaming: same pipeline unbounded — sliding windows, watermarks, late data, triggering | P1 |
 | **M6** | Production runner (Flink on-K8s or Dataflow) + pipeline monitoring (lag, throughput, failures) | P1 |
 | **M7** | KubeVerdict alerting + optional retraining loop back to the datalake | P2 |
