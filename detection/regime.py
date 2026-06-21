@@ -27,10 +27,11 @@ oscillating on a score that hovers near a threshold:
     the instantaneous switch. The streak lives in the regime state, so it
     survives across calls (and, once seeded, across batch runs).
 
-State note: the regime is held in a pluggable state object (in-memory by
-default). Within a long-lived/streaming run this works directly; for separate
-batch runs (e.g. a K3s CronJob) the regime should be seeded from the knowledge
-base (the last signal's ``labels["regime"]``) — a deployment follow-up.
+State note: the regime is held in a pluggable state object. Within a
+long-lived/streaming run the in-memory default works directly; for separate
+batch runs (e.g. a K3s CronJob) pass :class:`KBSeededRegimeState`, which seeds
+each key from the last persisted signal's ``labels["regime"]`` so an in-flight
+incident survives across runs.
 """
 from __future__ import annotations
 
@@ -71,6 +72,56 @@ class InMemoryRegimeState:
 
     def set_status(self, key: tuple[str, str], status: RegimeStatus) -> None:
         self._state[key] = status
+
+
+class KBSeededRegimeState(InMemoryRegimeState):
+    """In-memory regime state seeded lazily from the knowledge base.
+
+    Separate batch runs would each reset every key to NORMAL, losing an
+    in-flight incident between runs. This seeds a key, on first access, from the
+    last persisted signal's ``labels["regime"]`` (via ``store.latest``), then
+    behaves exactly like the in-memory parent. ``store`` is any object exposing
+    ``latest(entity, metric)`` (the KB :class:`~kb.store.SignalStore`).
+
+    The debounce *streak* is not persisted (only the regime is, in the signal's
+    labels), so a run resumes the regime with a fresh streak — transition timing
+    restarts, the regime itself carries over.
+    """
+
+    _VALID = {"normal", "incident"}
+
+    def __init__(self, store, *, default: str = "normal") -> None:
+        super().__init__()
+        self._store = store
+        self._default = default
+        self._seeded: set[tuple[str, str]] = set()
+
+    def _seed(self, key: tuple[str, str]) -> None:
+        if key in self._seeded:
+            return
+        self._seeded.add(key)   # mark first: a key with no record isn't re-queried
+        rec = self._store.latest(key[0], key[1])
+        if rec is not None:
+            regime = rec.labels.get("regime", self._default)
+            if regime not in self._VALID:
+                regime = self._default
+            self._state[key] = RegimeStatus(regime, 0)
+
+    def get(self, key: tuple[str, str]) -> str:
+        self._seed(key)
+        return super().get(key)
+
+    def get_status(self, key: tuple[str, str]) -> RegimeStatus:
+        self._seed(key)
+        return super().get_status(key)
+
+    def set(self, key: tuple[str, str], regime: str) -> None:
+        self._seeded.add(key)   # an explicit value supersedes any KB seed
+        super().set(key, regime)
+
+    def set_status(self, key: tuple[str, str], status: RegimeStatus) -> None:
+        self._seeded.add(key)
+        super().set_status(key, status)
 
 
 @dataclass
