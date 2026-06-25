@@ -10,22 +10,22 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) and [CONNECTORS.md](./CONNECTORS.md).
 | **M0** | Frozen decisions (D1–D5 below) — gate before any code beyond M2 | ✅ D1/D3/D4 decided |
 | **M1** | PatchTST inference module decoupled from the training `Learner`, exposing **both heads**: `forecast(window)` and `reconstruct(window)`; RevIN normalization, checkpoint loaded once per worker — *engine + reference checkpoints (ETTh1 pretrain→finetune, `inference/train_reference.py`); detector rebranch (drop training-on-the-fly) is the remaining follow-up* | ✅ engine + checkpoints |
 | **M1.5** | **Connector SPI**: pivot schema + `SourceConnector`/`SinkConnector` contracts + `registry` + contract/conformance test suite — *implemented (PR #2), 100% coverage* | ✅ done |
-| **M2** | Beam batch skeleton on DirectRunner: source → windowing → sink, no model. Validates pivot schema end-to-end (dev/test only, never prod) | P0 |
-| **M3** | PatchTST in the pipeline via `RunInference` with a custom PyTorch `ModelHandler`: per-worker load, batching, device. Output enriched with **forecast residual + reconstruction error** | P0 |
+| **M2** | Beam batch skeleton on DirectRunner: source → windowing → sink, no model. Validates pivot schema end-to-end (dev/test only, never prod) — *`BeamEngine` on DirectRunner via engine-agnostic ports & adapters (#4); real Mimir → detection → signal-store write path + DirectRunner integration test (#6). Batch windowing lives in the pivot/detector layer; native `WindowInto` / watermarks are M5* | ✅ done |
+| **M3** | PatchTST in the pipeline via `RunInference` with a custom PyTorch `ModelHandler`: per-worker load, batching, device. Output enriched with **forecast residual + reconstruction error** — *inference-backed D1 detectors wired to the load-once M1 engine, per-window forecast residual + reconstruction error (#15)* | ✅ done |
 | **M4** | **Regime-switching detection** per `group_id` (NORMAL→INCIDENT state machine): forecast anticipation (early WARN, `h ≤ remediation time`) in NORMAL, reconstruction detective verdict in INCIDENT; adaptive thresholds (rolling quantile / MAD), per-channel residual aggregation, anti-flapping — *state machine (#9), anti-flapping (#16), adaptive thresholds (#17), entity aggregation (#18), KB-seeded regime state (#19)* | ✅ done |
 | **M5** | Streaming: same pipeline unbounded — sliding windows, watermarks, late data, triggering | P1 |
 | **M6** | Production runner (Flink on-K8s or Dataflow) + pipeline monitoring (lag, throughput, failures) | P1 |
 | **M7** | KubeVerdict alerting + optional retraining loop back to the datalake | P2 |
 
-## Critical path (batch POC)
+## Critical path (batch POC) — ✅ complete
 
 ```
-M0 → M1 → M1.5 → M2 → M3 → M4
+M0 → M1 → M1.5 → M2 → M3 → M4   ✅ all merged
 ```
 
 End-to-end variation detection on historical data, without touching streaming or
-Flink. This de-risks the two fragile joints — inference-in-Beam and the model's
-real value — before investing in streaming ops.
+Flink. This de-risked the two fragile joints — inference-in-Beam and the model's
+real value — before investing in streaming ops. **Next frontier: M5 (streaming).**
 
 ## Connector workstream
 
