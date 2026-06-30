@@ -29,20 +29,44 @@ from .base import Engine, Transform
 
 @dataclass(frozen=True)
 class WindowSpec:
-    """Sliding-window + late-data policy for the streaming path.
+    """Sliding-window + triggering + late-data policy for the streaming path.
 
     ``size_s`` is the window length and ``period_s`` the slide step (overlapping
     when ``period_s < size_s``). ``allowed_lateness_s`` is how far past the
     watermark a late element is still admitted into its window (and re-fires its
     pane); elements later than that are dropped. ``accumulation`` controls
-    whether a late firing re-emits the full window (``"accumulating"``) or only
+    whether a re-firing re-emits the full window (``"accumulating"``) or only
     the new elements (``"discarding"``).
+
+    **Triggering** decides *when* a window's pane is emitted, relative to the
+    watermark (which marks the window as on-time-complete):
+
+    - The on-time pane always fires once the watermark passes the window end.
+    - ``early_firing_count``: if set, also emit a *speculative* pane after every
+      N new elements **before** the watermark closes the window — low-latency
+      partial verdicts that are later corrected by the on-time/late panes. Left
+      ``None`` for watermark-only (the default, lowest-volume behavior).
+    - ``late_firing_count``: re-fire after every N late elements admitted within
+      ``allowed_lateness_s`` (default 1: re-fire on each late arrival).
     """
 
     size_s: float = 60.0
     period_s: float = 30.0
     allowed_lateness_s: float = 0.0
     accumulation: str = "accumulating"
+    early_firing_count: Optional[int] = None
+    late_firing_count: int = 1
+
+    def __post_init__(self) -> None:
+        if self.accumulation not in ("accumulating", "discarding"):
+            raise ValueError(
+                f"accumulation must be 'accumulating' or 'discarding', "
+                f"got {self.accumulation!r}"
+            )
+        if self.late_firing_count < 1:
+            raise ValueError("late_firing_count must be >= 1")
+        if self.early_firing_count is not None and self.early_firing_count < 1:
+            raise ValueError("early_firing_count must be >= 1 when set")
 
 
 class BeamEngine(Engine):
@@ -127,6 +151,18 @@ class BeamEngine(Engine):
             if w.accumulation == "accumulating"
             else AccumulationMode.DISCARDING
         )
+        # Composed trigger: optional speculative early panes (every N elements
+        # before the watermark), the on-time pane at the watermark, then a late
+        # pane per N late arrivals still within allowed lateness. Elements later
+        # than that are dropped.
+        early = (
+            AfterCount(w.early_firing_count)
+            if w.early_firing_count is not None
+            else None
+        )
+        trigger = AfterWatermark(
+            early=early, late=AfterCount(w.late_firing_count)
+        )
         windowed = (
             pcoll
             | "Timestamp"
@@ -134,9 +170,7 @@ class BeamEngine(Engine):
             | "Window"
             >> beam.WindowInto(
                 SlidingWindows(int(w.size_s), int(w.period_s)),
-                # fire once on the watermark, then once per late arrival still
-                # within allowed lateness; later elements are dropped.
-                trigger=AfterWatermark(late=AfterCount(1)),
+                trigger=trigger,
                 allowed_lateness=w.allowed_lateness_s,
                 accumulation_mode=accumulation,
             )

@@ -76,6 +76,37 @@ def test_synthetic_source_agnostic_read():
     assert src.describe()["type"] == "SyntheticStreamSource"
 
 
+def test_streaming_early_firings_emit_speculative_panes(tmp_path):
+    """early_firing_count adds speculative panes before the watermark closes."""
+    watermark_only = tmp_path / "wm.txt"
+    with_early = tmp_path / "early.txt"
+
+    _run(
+        build("synthetic-stream", n_points=8, step_s=15),
+        _CountingFileSink(str(watermark_only)),
+        WindowSpec(size_s=60, period_s=30),
+    )
+    _run(
+        build("synthetic-stream", n_points=8, step_s=15),
+        _CountingFileSink(str(with_early)),
+        WindowSpec(size_s=60, period_s=30, early_firing_count=1),
+    )
+
+    # Same stream, same windows: speculative early panes => strictly more
+    # firings than the watermark-only policy.
+    assert len(_lines(with_early)) > len(_lines(watermark_only))
+
+
+def test_windowspec_rejects_invalid_policy():
+    """Bad triggering/accumulation config fails fast, not silently."""
+    with pytest.raises(ValueError):
+        WindowSpec(accumulation="nope")
+    with pytest.raises(ValueError):
+        WindowSpec(late_firing_count=0)
+    with pytest.raises(ValueError):
+        WindowSpec(early_firing_count=0)
+
+
 def test_streaming_late_data_gated_by_allowed_lateness(tmp_path):
     """A late element fires an extra pane only when within allowed lateness."""
     dropped = tmp_path / "drop.txt"
