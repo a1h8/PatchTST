@@ -1,0 +1,48 @@
+# Example Dataflow streaming config — submit with:
+#   python -m pipeline config/dataflow-streaming.example.yaml
+#
+# Same source -> detection -> sink cycle as pipeline.example.yaml, but run
+# unbounded on Google Cloud Dataflow (M6). The pipeline code is identical; only
+# the `engine:` block changes. Workers run the custom SDK container built from
+# deploy/dataflow/Dockerfile — see deploy/dataflow/README.md for prerequisites.
+
+source:
+  type: mimir
+  params:
+    endpoint: http://mimir:9009
+    promql: '{__name__=~"sim_.+"}'
+    start: 0            # ignored for the streaming replay; live ingress is Mimir-first (D2)
+    end: 0
+    step_s: 60
+    group_by: [pod, namespace]
+    channel_label: __name__
+
+# Dependency-free detector so the worker image stays lean; swap for the D1
+# regime-switch block (needs torch) once the checkpoints are staged.
+detector:
+  type: zscore
+
+sinks:
+  - type: signal-store
+    params:
+      root: s3://patchtst-kb/kb     # object store, not a worker-local path
+
+engine:
+  type: beam
+  runner: dataflow
+  streaming: true
+  window:
+    size_s: 300         # 5 min sliding window
+    period_s: 60        # new pane every minute
+    allowed_lateness_s: 120
+    early_firing_count: 1   # speculative low-latency partial verdict
+  options:
+    project: my-gcp-project
+    region: europe-west1
+    temp_location: gs://patchtst-dataflow/tmp
+    staging_location: gs://patchtst-dataflow/staging
+    job_name: patchtst-detection-stream
+    # Custom SDK container carrying the pipeline code + deps (deploy/dataflow/Dockerfile).
+    sdk_container_image: europe-west1-docker.pkg.dev/my-gcp-project/patchtst/dataflow-worker:2.74.0
+    experiments: [use_runner_v2, enable_streaming_engine]
+    max_num_workers: 5

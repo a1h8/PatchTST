@@ -49,7 +49,14 @@ def beam_pipeline_options(
             f"unknown runner {runner!r}; available: {sorted(_RUNNER_ALIASES)}"
         ) from None
 
-    argv = [f"--{key}={value}" for key, value in (options or {}).items()]
+    # Flatten settings into --flag=value. A list value emits the flag once per
+    # item, matching Beam's repeatable flags (e.g. experiments, sdk_harness
+    # extra packages). A bool emits --flag=true/false.
+    argv: list[str] = []
+    for key, value in (options or {}).items():
+        items = value if isinstance(value, (list, tuple)) else [value]
+        for item in items:
+            argv.append(f"--{key}={item}")
     opts = PipelineOptions(argv)
     opts.view_as(StandardOptions).runner = runner_name
     opts.view_as(StandardOptions).streaming = streaming

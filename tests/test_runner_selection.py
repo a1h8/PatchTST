@@ -67,6 +67,19 @@ def test_options_reject_unknown_runner():
         beam_pipeline_options("spark")
 
 
+def test_options_list_value_emits_repeated_flag():
+    """A list setting (e.g. experiments) becomes a repeatable Beam flag."""
+    from apache_beam.options.pipeline_options import DebugOptions
+
+    opts = beam_pipeline_options(
+        "dataflow",
+        options={"experiments": ["use_runner_v2", "enable_streaming_engine"]},
+    )
+    experiments = opts.view_as(DebugOptions).experiments
+    assert "use_runner_v2" in experiments
+    assert "enable_streaming_engine" in experiments
+
+
 # -- config wiring ----------------------------------------------------------
 def test_build_engine_wires_streaming_window_and_runner():
     eng = build_engine(
@@ -94,6 +107,27 @@ def test_build_engine_beam_defaults_to_direct_batch():
     assert isinstance(eng, BeamEngine)
     assert eng._streaming is False
     assert eng._options.view_as(StandardOptions).runner == "DirectRunner"
+
+
+def test_shipped_dataflow_example_config_builds():
+    """The committed Dataflow example stays in sync with build_engine."""
+    from pathlib import Path
+
+    from pipeline.runner import load_config
+
+    cfg = load_config(
+        str(
+            Path(__file__).resolve().parent.parent
+            / "config"
+            / "dataflow-streaming.example.yaml"
+        )
+    )
+    eng = build_engine(cfg["engine"])
+    assert isinstance(eng, BeamEngine)
+    assert eng._streaming is True
+    assert eng._window.size_s == 300
+    assert eng._window.early_firing_count == 1
+    assert eng._options.view_as(StandardOptions).runner == "DataflowRunner"
 
 
 # -- monitoring -------------------------------------------------------------
