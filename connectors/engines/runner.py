@@ -1,0 +1,56 @@
+"""Beam runner selection — build ``PipelineOptions`` for a target runner.
+
+Keeps runner choice out of the engine and the connectors: the pipeline config
+names a runner by alias (``direct`` / ``dataflow`` / ``flink``) and passes a
+small dict of runner-specific settings (``project``, ``region``,
+``temp_location`` for Dataflow; ``flink_master`` for Flink; ...). ``apache_beam``
+is imported lazily so the agnostic core never needs it.
+
+M6 order (decision): **Dataflow first** (managed, least ops), then
+**Flink-on-K8s** (portable runner + job server on the existing k3s cluster). Both
+run the *same* ``BeamEngine`` pipeline — only these options change.
+"""
+from __future__ import annotations
+
+from typing import Any, Optional
+
+# Alias -> Beam runner class. Kept small and explicit; unknown aliases fail fast
+# rather than being forwarded to Beam as an opaque string.
+_RUNNER_ALIASES = {
+    "direct": "DirectRunner",
+    "dataflow": "DataflowRunner",
+    "flink": "FlinkRunner",
+}
+
+
+def beam_pipeline_options(
+    runner: str = "direct",
+    *,
+    streaming: bool = False,
+    options: Optional[dict[str, Any]] = None,
+):
+    """Translate a runner alias + settings dict into Beam ``PipelineOptions``.
+
+    Runner-specific keys are flattened into Beam's ``--flag=value`` argv form so
+    each is parsed by whichever ``PipelineOptions`` view owns it (e.g.
+    ``project``/``region``/``temp_location`` land on ``GoogleCloudOptions``). The
+    runner alias and ``streaming`` flag are then set explicitly on
+    ``StandardOptions``.
+    """
+    from apache_beam.options.pipeline_options import (
+        PipelineOptions,
+        StandardOptions,
+    )
+
+    try:
+        runner_name = _RUNNER_ALIASES[runner]
+    except KeyError:
+        raise KeyError(
+            f"unknown runner {runner!r}; available: {sorted(_RUNNER_ALIASES)}"
+        ) from None
+
+    argv = [f"--{key}={value}" for key, value in (options or {}).items()]
+    opts = PipelineOptions(argv)
+    opts.view_as(StandardOptions).runner = runner_name
+    opts.view_as(StandardOptions).streaming = streaming
+    return opts

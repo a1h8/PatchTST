@@ -27,6 +27,28 @@ from ..base import SinkConnector, SourceConnector
 from .base import Engine, Transform
 
 
+# -- monitoring (M6) -------------------------------------------------------
+# Throughput counters read off the PipelineResult after the run — the runner-
+# agnostic slice of "pipeline monitoring (lag, throughput, failures)". Both are
+# module-level so they pickle for distributed runners; the Metrics import is
+# deferred to worker execution.
+_METRICS_NS = "pipeline"
+
+
+def _count_in(row):
+    from apache_beam.metrics import Metrics
+
+    Metrics.counter(_METRICS_NS, "rows_in").inc()
+    return row
+
+
+def _count_out(record):
+    from apache_beam.metrics import Metrics
+
+    Metrics.counter(_METRICS_NS, "records_out").inc()
+    return record
+
+
 @dataclass(frozen=True)
 class WindowSpec:
     """Sliding-window + triggering + late-data policy for the streaming path.
@@ -86,7 +108,13 @@ class BeamEngine(Engine):
         source: SourceConnector,
         sinks: Sequence[SinkConnector],
         transform: Optional[Transform] = None,
-    ) -> None:
+    ):
+        """Run the flow on the configured runner; returns the ``PipelineResult``.
+
+        The result carries the throughput counters (``rows_in`` /
+        ``records_out`` under the ``pipeline`` namespace) and, on a real runner,
+        the job handle for lag/failure monitoring.
+        """
         import apache_beam as beam
 
         options = self._options
@@ -99,17 +127,21 @@ class BeamEngine(Engine):
             options = options or PipelineOptions()
             options.view_as(StandardOptions).streaming = True
 
-        with beam.Pipeline(options=options) as p:
-            native_read = source.native_beam_read()
-            pcoll = p | "Read" >> (
-                native_read
-                if native_read is not None
-                else beam.Create(list(source.read()))
-            )
-            if self._streaming:
-                self._run_streaming(beam, pcoll, sinks, transform)
-            else:
-                self._run_batch(beam, pcoll, sinks, transform)
+        pipeline = beam.Pipeline(options=options)
+        native_read = source.native_beam_read()
+        pcoll = pipeline | "Read" >> (
+            native_read
+            if native_read is not None
+            else beam.Create(list(source.read()))
+        )
+        pcoll = pcoll | "CountIn" >> beam.Map(_count_in)
+        if self._streaming:
+            self._run_streaming(beam, pcoll, sinks, transform)
+        else:
+            self._run_batch(beam, pcoll, sinks, transform)
+        result = pipeline.run()
+        result.wait_until_finish()
+        return result
 
     # -- batch -------------------------------------------------------------
     def _run_batch(self, beam, pcoll, sinks, transform) -> None:
@@ -122,16 +154,17 @@ class BeamEngine(Engine):
                 | "ToListT" >> beam.combiners.ToList()
                 | "Transform" >> beam.FlatMap(lambda rows: list(transform(rows)))
             )
+        out = pcoll | "CountOut" >> beam.Map(_count_out)
         for i, sink in enumerate(sinks):
             native_write = sink.native_beam_write()
             if native_write is not None:
-                pcoll | f"Write{i}" >> native_write
+                out | f"Write{i}" >> native_write
             else:
                 # Fallback: gather to one bundle and call the agnostic
                 # write(). Fine for batch/small; native writers should be
                 # provided for large or unbounded sinks.
                 (
-                    pcoll
+                    out
                     | f"ToList{i}" >> beam.combiners.ToList()
                     | f"Write{i}" >> beam.Map(sink.write)
                 )
@@ -187,6 +220,7 @@ class BeamEngine(Engine):
             )
         else:
             out = windowed
+        out = out | "CountOut" >> beam.Map(_count_out)
         for i, sink in enumerate(sinks):
             native_write = sink.native_beam_write()
             if native_write is not None:
