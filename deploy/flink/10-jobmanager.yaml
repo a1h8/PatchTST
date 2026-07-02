@@ -1,0 +1,65 @@
+# Flink JobManager — orchestrates the job, drives checkpoints, handles recovery.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flink-jobmanager
+  namespace: patchtst
+  labels:
+    app.kubernetes.io/part-of: patchtst-pipeline
+    app.kubernetes.io/component: flink-jobmanager
+spec:
+  replicas: 1              # single JM, no HA (dev footprint)
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: flink-jobmanager
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: patchtst-pipeline
+        app.kubernetes.io/component: flink-jobmanager
+    spec:
+      containers:
+        - name: jobmanager
+          image: flink:1.18.1-scala_2.12-java11
+          args: ["jobmanager"]
+          ports:
+            - { name: rpc, containerPort: 6123 }
+            - { name: blob, containerPort: 6124 }
+            - { name: ui, containerPort: 8081 }
+          envFrom:
+            - secretRef: { name: flink-s3-creds }   # AWS_* for S3A checkpoints
+          env:
+            - name: ENABLE_BUILT_IN_PLUGINS
+              valueFrom:
+                configMapKeyRef: { name: flink-config, key: ENABLE_BUILT_IN_PLUGINS }
+          volumeMounts:
+            - name: flink-config
+              mountPath: /opt/flink/conf/flink-conf.yaml
+              subPath: flink-conf.yaml
+          readinessProbe:
+            httpGet: { path: /, port: 8081 }
+            initialDelaySeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 1Gi }
+      volumes:
+        - name: flink-config
+          configMap:
+            name: flink-config
+            items:
+              - { key: flink-conf.yaml, path: flink-conf.yaml }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flink-jobmanager
+  namespace: patchtst
+  labels:
+    app.kubernetes.io/part-of: patchtst-pipeline
+    app.kubernetes.io/component: flink-jobmanager
+spec:
+  selector:
+    app.kubernetes.io/component: flink-jobmanager
+  ports:
+    - { name: rpc, port: 6123 }
+    - { name: blob, port: 6124 }
+    - { name: ui, port: 8081 }

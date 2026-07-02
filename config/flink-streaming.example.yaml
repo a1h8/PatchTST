@@ -1,0 +1,44 @@
+# Example Flink-on-K8s streaming config — submit with:
+#   python -m pipeline config/flink-streaming.example.yaml
+#
+# Same source -> detection -> sink cycle as the Dataflow example, but run on the
+# self-hosted Flink cluster (deploy/flink). The driver talks to the Beam job
+# server (runner: portable, job_endpoint), which submits a native Flink job;
+# TaskManagers run the Python detector via the EXTERNAL SDK harness sidecar.
+
+source:
+  type: mimir
+  params:
+    endpoint: http://mimir-gateway.patchtst.svc.cluster.local:80
+    promql: '{__name__=~"sim_.+"}'
+    start: 0
+    end: 0
+    step_s: 60
+    group_by: [pod, namespace]
+    channel_label: __name__
+
+detector:
+  type: zscore
+
+sinks:
+  - type: signal-store
+    params:
+      root: s3://patchtst-kb/kb
+
+engine:
+  type: beam
+  runner: portable        # PortableRunner -> standalone Beam job server
+  streaming: true
+  window:
+    size_s: 300
+    period_s: 60
+    allowed_lateness_s: 120
+    early_firing_count: 1
+  options:
+    # Job server endpoint (deploy/flink 30-job-server Service).
+    job_endpoint: beam-job-server.patchtst.svc:8099
+    # Python DoFns execute in the TaskManager's SDK harness sidecar.
+    environment_type: EXTERNAL
+    environment_config: localhost:50000
+    # Persist checkpoints (Flink cluster writes them to S3/MinIO; see flink-conf).
+    checkpointing_interval: "30000"

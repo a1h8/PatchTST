@@ -1,0 +1,55 @@
+# Beam Flink Job Server — translates the Beam graph into a native Flink job and
+# submits it to the JobManager. The Python driver (python -m pipeline with
+# runner: portable) talks to this server's job endpoint (:8099); it does NOT
+# talk to Flink directly. Version-locked to the Flink cluster (1.18) and the
+# Beam SDK (2.74.0).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: beam-job-server
+  namespace: patchtst
+  labels:
+    app.kubernetes.io/part-of: patchtst-pipeline
+    app.kubernetes.io/component: beam-job-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: beam-job-server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: patchtst-pipeline
+        app.kubernetes.io/component: beam-job-server
+    spec:
+      containers:
+        - name: job-server
+          image: apache/beam_flink1.18_job_server:2.74.0
+          args:
+            - "--flink-master=flink-jobmanager:8081"
+            - "--job-host=0.0.0.0"
+            - "--job-port=8099"
+            - "--artifact-port=8098"
+            - "--expansion-port=8097"
+          ports:
+            - { name: job, containerPort: 8099 }
+            - { name: artifact, containerPort: 8098 }
+            - { name: expansion, containerPort: 8097 }
+          resources:
+            requests: { cpu: 100m, memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: beam-job-server
+  namespace: patchtst
+  labels:
+    app.kubernetes.io/part-of: patchtst-pipeline
+    app.kubernetes.io/component: beam-job-server
+spec:
+  selector:
+    app.kubernetes.io/component: beam-job-server
+  ports:
+    - { name: job, port: 8099 }
+    - { name: artifact, port: 8098 }
+    - { name: expansion, port: 8097 }
