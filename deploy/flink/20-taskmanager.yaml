@@ -1,0 +1,57 @@
+# Flink TaskManager — executes the tasks. Each pod carries a Beam Python SDK
+# harness sidecar (external worker pool): the TaskManager (JVM) runs the Flink
+# operators and calls localhost:50000 over the Fn API to execute the Python
+# DoFns (the detector). This is the EXTERNAL environment the pipeline options
+# point at (environment_type=EXTERNAL, environment_config=localhost:50000).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flink-taskmanager
+  namespace: patchtst
+  labels:
+    app.kubernetes.io/part-of: patchtst-pipeline
+    app.kubernetes.io/component: flink-taskmanager
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: flink-taskmanager
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: patchtst-pipeline
+        app.kubernetes.io/component: flink-taskmanager
+    spec:
+      containers:
+        - name: taskmanager
+          image: flink:1.18.1-scala_2.12-java11
+          args: ["taskmanager"]
+          ports:
+            - { name: rpc, containerPort: 6122 }
+          envFrom:
+            - secretRef: { name: flink-s3-creds }
+          env:
+            - name: ENABLE_BUILT_IN_PLUGINS
+              valueFrom:
+                configMapKeyRef: { name: flink-config, key: ENABLE_BUILT_IN_PLUGINS }
+          volumeMounts:
+            - name: flink-config
+              mountPath: /opt/flink/conf/flink-conf.yaml
+              subPath: flink-conf.yaml
+          resources:
+            requests: { cpu: 250m, memory: 2Gi }
+        # Python SDK harness: runs the pipeline's Python code on demand.
+        - name: beam-worker-pool
+          image: apache/beam_python3.11_sdk:2.74.0
+          command: ["/opt/apache/beam/boot"]
+          args: ["--worker_pool"]
+          ports:
+            - { name: worker-pool, containerPort: 50000 }
+          resources:
+            requests: { cpu: 100m, memory: 512Mi }
+      volumes:
+        - name: flink-config
+          configMap:
+            name: flink-config
+            items:
+              - { key: flink-conf.yaml, path: flink-conf.yaml }
