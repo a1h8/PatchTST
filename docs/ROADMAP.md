@@ -7,7 +7,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) and [CONNECTORS.md](./CONNECTORS.md).
 
 | Milestone | Deliverable | Priority |
 |-----------|-------------|----------|
-| **M0** | Frozen decisions (D1–D5 below) — gate before any code beyond M2 | ✅ D1/D3/D4 decided |
+| **M0** | Frozen decisions (D1–D5 below) — gate before any code beyond M2 | ✅ D1–D5 decided |
 | **M1** | PatchTST inference module decoupled from the training `Learner`, exposing **both heads**: `forecast(window)` and `reconstruct(window)`; RevIN normalization, checkpoint loaded once per worker — *engine + reference checkpoints (ETTh1 pretrain→finetune, `inference/train_reference.py`); load-once inference variant (`patchtst-infer`/`reconstruction-infer`) wired in M3 (#15), train-on-the-fly path kept for scoped/no-checkpoint assessment* | ✅ done |
 | **M1.5** | **Connector SPI**: pivot schema + `SourceConnector`/`SinkConnector` contracts + `registry` + contract/conformance test suite — *implemented (PR #2), 100% coverage* | ✅ done |
 | **M2** | Beam batch skeleton on DirectRunner: source → windowing → sink, no model. Validates pivot schema end-to-end (dev/test only, never prod) — *`BeamEngine` on DirectRunner via engine-agnostic ports & adapters (#4); real Mimir → detection → signal-store write path + DirectRunner integration test (#6). Batch windowing lives in the pivot/detector layer; native `WindowInto` / watermarks are M5* | ✅ done |
@@ -41,7 +41,7 @@ demand, not upfront.
 | #  | Question | Decision |
 |----|----------|----------|
 | D1 | Detection mechanism | ✅ **Both, regime-switching**: forecast (anticipate the wall) in NORMAL, reconstruction (detective) at the break |
-| D2 | Mimir as sole ingress, or Kafka/OTLP in parallel for low-latency live? | TBD |
+| D2 | Mimir as sole ingress, or Kafka/OTLP in parallel for low-latency live? | ✅ **Mimir-first**: Mimir (C9a) is the sole ingress for M6 — one connector, no broker, the same source as the historical KB; accepted latency is scrape + remote-write + query (~tens of s). Kafka/OTLP (C2/C7) added on-demand when sub-second forecast anticipation requires it. |
 | D3 | Plugin discovery: internal registry vs Python entry-points | ✅ **Internal registry** |
 | D4 | Pivot schema: univariate vs native multivariate | ✅ **Native multivariate** |
 | D5 | Datalake purpose: retraining vs analytics/compliance vs both | ✅ **Knowledge base** — longitudinal signal history kube-verdict queries as RCA evidence |
