@@ -66,13 +66,35 @@ def build_detector(cfg: dict) -> Detector:
 
 
 def build_engine(cfg: dict | None) -> Engine:
-    kind = (cfg or {}).get("type", "local")
-    if kind == "beam":
-        from connectors.engines.beam import BeamEngine
+    """Build the execution engine from config.
 
-        return BeamEngine()
+    ``local`` (default) is pure Python. ``beam`` runs on Apache Beam and accepts:
+
+        engine:
+          type: beam
+          runner: dataflow          # direct | dataflow | flink (default direct)
+          streaming: true           # unbounded windowed path (M5); default batch
+          window: {size_s: 60, period_s: 30, ...}   # WindowSpec, streaming only
+          options: {project: ..., region: ..., temp_location: ...}  # runner opts
+    """
+    cfg = cfg or {}
+    kind = cfg.get("type", "local")
     if kind == "local":
         return LocalEngine()
+    if kind == "beam":
+        from connectors.engines.beam import BeamEngine, WindowSpec
+        from connectors.engines.runner import beam_pipeline_options
+
+        streaming = bool(cfg.get("streaming", False))
+        window = WindowSpec(**cfg["window"]) if cfg.get("window") else None
+        options = beam_pipeline_options(
+            cfg.get("runner", "direct"),
+            streaming=streaming,
+            options=cfg.get("options"),
+        )
+        return BeamEngine(
+            pipeline_options=options, streaming=streaming, window=window
+        )
     raise KeyError(f"unknown engine {kind!r}; available: ['local', 'beam']")
 
 
