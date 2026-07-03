@@ -28,17 +28,28 @@ from .base import Engine, Transform
 
 
 # -- monitoring (M6) -------------------------------------------------------
-# Throughput counters read off the PipelineResult after the run — the runner-
-# agnostic slice of "pipeline monitoring (lag, throughput, failures)". Both are
-# module-level so they pickle for distributed runners; the Metrics import is
-# deferred to worker execution.
+# Pipeline monitoring read off the PipelineResult after the run — the runner-
+# agnostic "lag, throughput, failures". All helpers are module-level so they
+# pickle for distributed runners; the Metrics import is deferred to worker
+# execution.
+#   throughput: rows_in / records_out         (counters)
+#   lag:        event_lag_ms                   (distribution)
+#   failures:   records_failed                 (counter)
 _METRICS_NS = "pipeline"
 
 
-def _count_in(row):
+def _meter_in(row):
+    """Count each input row and record its event-time lag (wall clock - ts)."""
+    import time
+
     from apache_beam.metrics import Metrics
 
     Metrics.counter(_METRICS_NS, "rows_in").inc()
+    # PivotRow.ts is the event time in ms; present on both paths (no reliance on
+    # the Beam element timestamp, which the batch Create path does not set).
+    Metrics.distribution(_METRICS_NS, "event_lag_ms").update(
+        int(time.time() * 1000) - row.ts
+    )
     return row
 
 
@@ -47,6 +58,30 @@ def _count_out(record):
 
     Metrics.counter(_METRICS_NS, "records_out").inc()
     return record
+
+
+def _guarded(transform, rows):
+    """Apply ``transform`` to one bundle, counting failures instead of crashing.
+
+    A single poison bundle/window must not kill a long-running stream: on error
+    the whole bundle's rows are counted under ``records_failed``, the exception
+    is logged with context, and the bundle is dropped (empty output). Successful
+    bundles pass through unchanged.
+    """
+    import logging
+
+    from apache_beam.metrics import Metrics
+
+    rows = list(rows)
+    try:
+        return list(transform(rows))
+    except Exception:
+        Metrics.counter(_METRICS_NS, "records_failed").inc(len(rows))
+        logging.exception(
+            "detection transform failed for a bundle of %d row(s); dropped",
+            len(rows),
+        )
+        return []
 
 
 @dataclass(frozen=True)
@@ -111,9 +146,10 @@ class BeamEngine(Engine):
     ):
         """Run the flow on the configured runner; returns the ``PipelineResult``.
 
-        The result carries the throughput counters (``rows_in`` /
-        ``records_out`` under the ``pipeline`` namespace) and, on a real runner,
-        the job handle for lag/failure monitoring.
+        The result carries the monitoring metrics under the ``pipeline``
+        namespace — throughput (``rows_in`` / ``records_out`` counters), event
+        lag (``event_lag_ms`` distribution), failures (``records_failed``
+        counter) — and, on a real runner, the job handle for the live view.
         """
         import apache_beam as beam
 
@@ -134,7 +170,7 @@ class BeamEngine(Engine):
             if native_read is not None
             else beam.Create(list(source.read()))
         )
-        pcoll = pcoll | "CountIn" >> beam.Map(_count_in)
+        pcoll = pcoll | "MeterIn" >> beam.Map(_meter_in)
         if self._streaming:
             self._run_streaming(beam, pcoll, sinks, transform)
         else:
@@ -152,7 +188,7 @@ class BeamEngine(Engine):
             pcoll = (
                 pcoll
                 | "ToListT" >> beam.combiners.ToList()
-                | "Transform" >> beam.FlatMap(lambda rows: list(transform(rows)))
+                | "Transform" >> beam.FlatMap(lambda rows: _guarded(transform, rows))
             )
         out = pcoll | "CountOut" >> beam.Map(_count_out)
         for i, sink in enumerate(sinks):
@@ -216,7 +252,7 @@ class BeamEngine(Engine):
                 | "KeyByEntity" >> beam.Map(lambda r: (r.group_id, r))
                 | "GroupByEntity" >> beam.GroupByKey()
                 | "Detect"
-                >> beam.FlatMap(lambda kv, t=transform: list(t(list(kv[1]))))
+                >> beam.FlatMap(lambda kv, t=transform: _guarded(t, list(kv[1])))
             )
         else:
             out = windowed

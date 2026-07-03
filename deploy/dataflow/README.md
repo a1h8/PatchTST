@@ -58,9 +58,10 @@ long-running stream. The job then appears in the Dataflow console.
 ## Monitoring
 
 `BeamEngine.run()` returns the `PipelineResult` (the Dataflow job handle). The
-throughput counters (`rows_in` / `records_out`, namespace `pipeline`) are visible
-in the Dataflow **Job Metrics** tab alongside system lag and watermark. Lag /
-failure dashboards are the next M6 slice.
+pipeline metrics (namespace `pipeline`) are visible in the Dataflow **Job
+Metrics** tab: throughput (`rows_in` / `records_out`), event lag
+(`event_lag_ms`), and failures (`records_failed`) — alongside Dataflow's own
+system lag and watermark.
 
 ## Cost & teardown
 
