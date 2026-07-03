@@ -19,7 +19,11 @@ from typing import Any, Optional
 _RUNNER_ALIASES = {
     "direct": "DirectRunner",
     "dataflow": "DataflowRunner",
+    # FlinkRunner boots its own job server from `flink_master` (dev / embedded).
     "flink": "FlinkRunner",
+    # PortableRunner talks to a standalone Beam job server via `job_endpoint` —
+    # the k8s-native path (job server + Flink cluster deployed separately).
+    "portable": "PortableRunner",
 }
 
 

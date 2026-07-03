@@ -62,6 +62,22 @@ def test_options_default_is_direct_batch():
     assert opts.view_as(StandardOptions).streaming is False
 
 
+def test_options_map_portable_alias():
+    """Flink-on-K8s path: portable runner + standalone job server endpoint."""
+    from apache_beam.options.pipeline_options import PortableOptions
+
+    opts = beam_pipeline_options(
+        "portable",
+        streaming=True,
+        options={"job_endpoint": "beam-job-server.patchtst.svc:8099"},
+    )
+    assert opts.view_as(StandardOptions).runner == "PortableRunner"
+    assert (
+        opts.view_as(PortableOptions).job_endpoint
+        == "beam-job-server.patchtst.svc:8099"
+    )
+
+
 def test_options_reject_unknown_runner():
     with pytest.raises(KeyError):
         beam_pipeline_options("spark")
@@ -128,6 +144,30 @@ def test_shipped_dataflow_example_config_builds():
     assert eng._window.size_s == 300
     assert eng._window.early_firing_count == 1
     assert eng._options.view_as(StandardOptions).runner == "DataflowRunner"
+
+
+def test_shipped_flink_example_config_builds():
+    """The committed Flink-on-K8s example stays in sync with build_engine."""
+    from pathlib import Path
+
+    from apache_beam.options.pipeline_options import PortableOptions
+    from pipeline.runner import load_config
+
+    cfg = load_config(
+        str(
+            Path(__file__).resolve().parent.parent
+            / "config"
+            / "flink-streaming.example.yaml"
+        )
+    )
+    eng = build_engine(cfg["engine"])
+    assert isinstance(eng, BeamEngine)
+    assert eng._streaming is True
+    assert eng._options.view_as(StandardOptions).runner == "PortableRunner"
+    assert (
+        eng._options.view_as(PortableOptions).job_endpoint
+        == "beam-job-server.patchtst.svc:8099"
+    )
 
 
 # -- monitoring -------------------------------------------------------------
