@@ -7,10 +7,18 @@ HTTP app factory.
 from .signal import SignalRecord
 from .store import SignalStore
 
-# Register the SPI sink façade (write path goes through the connector cycle).
+# Register the SPI sinks (write path goes through the connector cycle):
+# the datalake store, and the kube-verdict alert push.
 from .sink import SignalStoreSink  # noqa: E402
+from .alert import KubeVerdictAlertSink  # noqa: E402
 
-__all__ = ["SignalRecord", "SignalStore", "SignalStoreSink", "create_app"]
+__all__ = [
+    "SignalRecord",
+    "SignalStore",
+    "SignalStoreSink",
+    "KubeVerdictAlertSink",
+    "create_app",
+]
 
 
 def create_app(store: SignalStore):
