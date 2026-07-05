@@ -176,6 +176,20 @@ def _counters(result):
     return {m.key.metric.name: m.committed for m in got["counters"]}
 
 
+def _distributions(result):
+    got = result.metrics().query(MetricsFilter().with_namespace("pipeline"))
+    return {m.key.metric.name: m.committed for m in got["distributions"]}
+
+
+def _bounded_mimir_source(monkeypatch):
+    monkeypatch.setattr(
+        "connectors.sources.mimir.query_range", lambda *a, **k: _FAKE_RESULT
+    )
+    return build(
+        "mimir", endpoint="http://m", promql="up", start=0, end=30, step_s=15
+    )
+
+
 def test_throughput_counters_reported_on_result(monkeypatch):
     """rows_in / records_out land on the PipelineResult after a bounded run.
 
@@ -183,13 +197,30 @@ def test_throughput_counters_reported_on_result(monkeypatch):
     batch DirectRunner (streaming DirectRunner does not fully report committed
     metrics — those are read from the live job on a real runner).
     """
-    monkeypatch.setattr(
-        "connectors.sources.mimir.query_range", lambda *a, **k: _FAKE_RESULT
-    )
-    source = build(
-        "mimir", endpoint="http://m", promql="up", start=0, end=30, step_s=15
-    )
-    result = BeamEngine().run(source, [_NullSink()])
+    result = BeamEngine().run(_bounded_mimir_source(monkeypatch), [_NullSink()])
     counters = _counters(result)
     assert counters["rows_in"] == 2  # 2 timestamps -> 2 multivariate rows
     assert counters["records_out"] == 2  # passthrough, no transform
+
+
+def test_event_lag_distribution_reported(monkeypatch):
+    """event_lag_ms is recorded once per input row (wall clock - event time)."""
+    result = BeamEngine().run(_bounded_mimir_source(monkeypatch), [_NullSink()])
+    lag = _distributions(result)["event_lag_ms"]
+    assert lag.count == 2  # one observation per input row
+    assert lag.min > 0  # rows are epoch 0/15s -> lag is real wall-clock ms
+
+
+def test_failed_bundle_counted_and_pipeline_survives(monkeypatch):
+    """A poison transform is counted under records_failed, not fatal."""
+
+    def _boom(rows):
+        raise ValueError("poison bundle")
+
+    result = BeamEngine().run(
+        _bounded_mimir_source(monkeypatch), [_NullSink()], transform=_boom
+    )
+    counters = _counters(result)
+    assert counters["rows_in"] == 2
+    assert counters["records_failed"] == 2  # whole bundle counted as failed
+    assert counters.get("records_out", 0) == 0  # bundle dropped, nothing emitted
