@@ -24,10 +24,16 @@ detector:
     type: reconstruction
 
 # Knowledge base: aggregated signals queryable by kube-verdict (signal_history).
+# Add the kubeverdict-alert sink to also *push* the anomalous ones (the
+# INCIDENT verdicts) to kube-verdict's webhook as they happen (M7).
 sinks:
   - type: signal-store
     params:
       root: /data/kb        # local path or s3://bucket/kb
+  # - type: kubeverdict-alert
+  #   params:
+  #     endpoint: http://kube-verdict:8080/api/alerts
+  #     min_severity: warning     # normal | warning | critical
 
 engine:
   type: local              # local (K3s CronJob) | beam (Flink/Dataflow)
