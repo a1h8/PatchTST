@@ -40,5 +40,8 @@ jobs:
         run: ruff check .
 
       - name: Test (pytest + coverage gate)
-        # Coverage threshold (--cov-fail-under=75) is enforced from pytest.ini.
-        run: pytest -q
+        # `python -m pytest` (not the bare console script) puts the repo root on
+        # sys.path so the top-level packages (connectors, kb, ...) import — the
+        # project is run in-tree, not pip-installed. Coverage threshold
+        # (--cov-fail-under=75) is enforced from pytest.ini.
+        run: python -m pytest -q
