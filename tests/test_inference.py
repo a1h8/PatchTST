@@ -11,9 +11,9 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from inference import ModelSpec, PatchTSTInference
-from inference.engine import _select_state_dict
-from PatchTST_self_supervised.src.models.patchTST import PatchTST
+from inference import ModelSpec, PatchTSTInference  # noqa: E402
+from inference.engine import _select_state_dict  # noqa: E402
+from PatchTST_self_supervised.src.models.patchTST import PatchTST  # noqa: E402
 
 
 def _spec() -> ModelSpec:

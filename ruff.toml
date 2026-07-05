@@ -1,0 +1,9 @@
+# Lint scope: this fork's own pipeline code (connectors / kb / detection /
+# pipeline / inference / tests), NOT the vendored upstream PatchTST training
+# sources or the paper assets — those are carried as-is and not our style.
+extend-exclude = [
+    "PatchTST_supervised",
+    "PatchTST_self_supervised",
+    "pic",
+    ".claude",
+]
