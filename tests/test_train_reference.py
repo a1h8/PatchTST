@@ -9,8 +9,8 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from inference import train_reference as tr
-from inference.config import ModelSpec
+from inference import train_reference as tr  # noqa: E402
+from inference.config import ModelSpec  # noqa: E402
 
 
 class _Args:
