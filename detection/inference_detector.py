@@ -118,6 +118,14 @@ class _InferenceDetector(Detector):
         yet (leaves the paths unset so scoring falls back to z-score until a model
         exists — same graceful degradation as a missing checkpoint). Resolved once
         per process; a fresh run follows a newer pointer.
+
+        The ``spec`` (architecture) is read from the manifest, so a
+        ``checkpoint_dir``-only config is enough for any manifest the current
+        retraining loop writes. A manifest *without* a ``spec`` (e.g. produced
+        before the loop persisted it) needs ``spec`` supplied in the detector
+        config: the config ``spec`` and the manifest checkpoints then combine.
+        Without either, the engine cannot be built and scoring falls back to
+        z-score (logged per window) even though the checkpoints exist.
         """
         if (self.forecast_ckpt and self.reconstruct_ckpt) or not self.checkpoint_dir:
             return
