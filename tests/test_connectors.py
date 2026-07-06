@@ -300,3 +300,91 @@ def test_query_range_error_status_raises(monkeypatch):
     )
     with pytest.raises(RuntimeError, match="bad query"):
         query_range("http://m", "up", 0, 1, 15)
+
+
+# --- mimir CLI: window resolution + real-run entrypoint --------------------
+
+def test_parse_duration_units():
+    from connectors.sources.mimir_cli import parse_duration
+
+    assert parse_duration("90s") == 90
+    assert parse_duration("30m") == 1800
+    assert parse_duration("1h") == 3600
+    assert parse_duration("2d") == 172800
+    assert parse_duration("45") == 45  # bare int = seconds
+
+
+def test_parse_duration_bad_unit():
+    from connectors.sources.mimir_cli import parse_duration
+
+    with pytest.raises(ValueError, match="unknown duration unit"):
+        parse_duration("5y")
+
+
+def test_resolve_window_lookback_from_now():
+    from connectors.sources.mimir_cli import resolve_window
+
+    start, end = resolve_window(start=None, end=None, lookback="1h", now_s=10_000)
+    assert (start, end) == (10_000 - 3600, 10_000)
+
+
+def test_resolve_window_explicit_bounds_win():
+    from connectors.sources.mimir_cli import resolve_window
+
+    assert resolve_window(start=5, end=42, lookback="1h", now_s=10_000) == (5, 42)
+
+
+def test_resolve_window_rejects_empty():
+    from connectors.sources.mimir_cli import resolve_window
+
+    with pytest.raises(ValueError, match="empty query window"):
+        resolve_window(start=100, end=50, lookback="1h")
+
+
+_MATRIX = [
+    {"metric": {"pod": "p1", "__name__": "cpu"}, "values": [[0, "1.0"], [60, "2.0"]]},
+    {"metric": {"pod": "p1", "__name__": "mem"}, "values": [[0, "3.0"], [60, "4.0"]]},
+]
+
+
+def test_mimir_cli_summary(monkeypatch, capsys):
+    # main() lives in mimir_cli, but the network call it drives is MimirSource ->
+    # mimir.query_range, so the patch targets the mimir module.
+    from connectors.sources import mimir as M
+    from connectors.sources import mimir_cli as C
+
+    captured = {}
+
+    def fake_query_range(endpoint, promql, start, end, step_s, *, tenant=None, timeout=30.0):
+        captured.update(endpoint=endpoint, start=start, end=end, tenant=tenant)
+        return _MATRIX
+
+    monkeypatch.setattr(M, "query_range", fake_query_range)
+    rc = C.main([
+        "--endpoint", "http://m:9009", "--promql", "up",
+        "--start", "0", "--end", "120", "--step", "60",
+        "--group-by", "pod", "--tenant", "demo",
+    ])
+    assert rc == 0
+    assert captured == {"endpoint": "http://m:9009", "start": 0, "end": 120, "tenant": "demo"}
+    out = capsys.readouterr().out
+    assert "2 rows, 1 groups, 2 channels" in out  # p1 x {cpu,mem}, ts 0 & 60
+
+
+def test_mimir_cli_json(monkeypatch, capsys):
+    import json as _json
+
+    from connectors.sources import mimir as M
+    from connectors.sources import mimir_cli as C
+
+    monkeypatch.setattr(M, "query_range", lambda *a, **k: _MATRIX)
+    rc = C.main([
+        "--endpoint", "http://m", "--promql", "up",
+        "--start", "0", "--end", "120", "--group-by", "pod", "--json",
+    ])
+    assert rc == 0
+    lines = [ln for ln in capsys.readouterr().out.splitlines() if ln.strip()]
+    rows = [_json.loads(ln) for ln in lines]
+    assert len(rows) == 2  # one pivot row per timestamp
+    assert rows[0]["group_id"] == "p1"
+    assert set(rows[0]["channels"]) == {"cpu", "mem"}

@@ -15,6 +15,9 @@ Config shape (dict / YAML / JSON):
 The ``patchtst-infer`` / ``reconstruction-infer`` detectors run the load-once M1
 engine instead of training on the fly; both take ``params: {forecast_ckpt,
 reconstruct_ckpt, spec}`` and, sharing those checkpoints, share one loaded engine.
+Alternatively they take ``params: {checkpoint_dir: ...}`` to follow the retraining
+loop's ``latest.json`` pointer (M7) — each run auto-resumes the newest retrained
+checkpoint set with no config change.
 """
 from __future__ import annotations
 
