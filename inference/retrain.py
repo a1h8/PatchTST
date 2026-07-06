@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from dataclasses import asdict, is_dataclass
 from typing import Any, Mapping
 
 import numpy as np
@@ -180,9 +181,18 @@ def retrain(
     train = np.concatenate(segments, axis=0)
     reconstruct_ckpt = pretrain(spec, train, args, device)
     forecast_ckpt = finetune(spec, train, reconstruct_ckpt, args, device)
+    meta: dict[str, Any] = {
+        "n_train_rows": int(len(train)),
+        "n_entities": len(segments),
+    }
+    # Persist the architecture so a `checkpoint_dir`-configured inference detector
+    # can re-instantiate the model to load these checkpoints without a duplicate
+    # spec in its own config (auto-resume via resolve_latest).
+    if is_dataclass(spec):
+        meta["spec"] = asdict(spec)
     return write_version(
         out_dir,
         forecast_ckpt=forecast_ckpt,
         reconstruct_ckpt=reconstruct_ckpt,
-        meta={"n_train_rows": int(len(train)), "n_entities": len(segments)},
+        meta=meta,
     )

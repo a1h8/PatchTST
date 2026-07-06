@@ -72,9 +72,14 @@ class _InferenceDetector(Detector):
     """Common wiring for checkpoint-backed PatchTST detectors.
 
     Provide *either* a pre-built ``engine`` (injection seam — tests, or a
-    worker that loaded it once) *or* ``(forecast_ckpt, reconstruct_ckpt, spec)``
-    to lazy-load and cache one. ``spec`` may be a plain dict (parsed YAML); it is
-    coerced to :class:`ModelSpec`.
+    worker that loaded it once), ``(forecast_ckpt, reconstruct_ckpt, spec)`` to
+    lazy-load and cache one, *or* a ``checkpoint_dir`` — the retraining loop's
+    versioned output directory (M7). With ``checkpoint_dir`` the detector follows
+    the ``latest.json`` pointer written by :func:`inference.retrain.write_version`,
+    so a freshly retrained checkpoint set is picked up automatically on the next
+    run (K3s CronJob tick / restarted worker) with no config change. ``spec`` may
+    be a plain dict (parsed YAML); it is coerced to :class:`ModelSpec`, and if
+    omitted it is read back from the retrain manifest.
 
     ``threshold`` is the score→severity policy (M4): a :class:`ThresholdPolicy`,
     a config dict (``{type: mad, params: {...}}``), or ``None`` for a fixed cut at
@@ -83,6 +88,7 @@ class _InferenceDetector(Detector):
 
     forecast_ckpt: str | None = None
     reconstruct_ckpt: str | None = None
+    checkpoint_dir: str | None = None
     spec: ModelSpec | dict | None = None
     device: str = "cpu"
     warning: float = 1.8
@@ -104,13 +110,36 @@ class _InferenceDetector(Detector):
 
     # ---- engine access ------------------------------------------------------
 
+    def _resolve_checkpoints(self) -> None:
+        """Follow the retrain ``latest.json`` pointer to pick up a retrained set.
+
+        No-op when explicit checkpoints were given or no ``checkpoint_dir`` is
+        configured, and a *silent* no-op when the loop has not produced a version
+        yet (leaves the paths unset so scoring falls back to z-score until a model
+        exists — same graceful degradation as a missing checkpoint). Resolved once
+        per process; a fresh run follows a newer pointer.
+        """
+        if (self.forecast_ckpt and self.reconstruct_ckpt) or not self.checkpoint_dir:
+            return
+        from inference.retrain import resolve_latest
+
+        manifest = resolve_latest(self.checkpoint_dir)
+        if manifest is None:
+            return
+        self.forecast_ckpt = self.forecast_ckpt or manifest["forecast_ckpt"]
+        self.reconstruct_ckpt = self.reconstruct_ckpt or manifest["reconstruct_ckpt"]
+        if self.spec is None and manifest.get("spec"):
+            self.spec = ModelSpec.from_dict(manifest["spec"])
+
     def _get_engine(self):
         if self.engine is not None:
             return self.engine
+        self._resolve_checkpoints()
         if not (self.forecast_ckpt and self.reconstruct_ckpt and self.spec):
             raise ValueError(
-                "inference detector needs either an `engine` or "
-                "(forecast_ckpt, reconstruct_ckpt, spec)"
+                "inference detector needs an `engine`, "
+                "(forecast_ckpt, reconstruct_ckpt, spec), or a `checkpoint_dir` "
+                "with a retrained `latest.json`"
             )
         self.engine = _load_engine(
             self.forecast_ckpt, self.reconstruct_ckpt, self.spec, self.device
@@ -118,6 +147,9 @@ class _InferenceDetector(Detector):
         return self.engine
 
     def _model_spec(self) -> ModelSpec:
+        if isinstance(self.spec, ModelSpec):
+            return self.spec
+        self._resolve_checkpoints()  # spec may travel in the retrain manifest
         if isinstance(self.spec, ModelSpec):
             return self.spec
         return self._get_engine().spec
@@ -143,8 +175,9 @@ class _InferenceDetector(Detector):
         labels: dict | None = None,
     ) -> SignalRecord:
         v = np.asarray(values, dtype=np.float32)
-        if len(v) >= self._min_points(self._model_spec()):
-            try:
+        try:
+            long_enough = len(v) >= self._min_points(self._model_spec())
+            if long_enough:
                 score = self._score(self._get_engine(), v)
                 severity = self.threshold.classify((entity_uid, metric_name), score)
                 return SignalRecord(
@@ -157,11 +190,11 @@ class _InferenceDetector(Detector):
                     n_points=int(len(v)),
                     labels=dict(labels or {}),
                 )
-            except Exception as exc:  # pragma: no cover - defensive
-                log.warning(
-                    "%s inference detect failed (%s); falling back to z-score",
-                    self.method, exc,
-                )
+        except Exception as exc:  # pragma: no cover - defensive
+            log.warning(
+                "%s inference detect failed (%s); falling back to z-score",
+                self.method, exc,
+            )
         return self.fallback.detect(entity_uid, metric_name, values, ts, labels)
 
 

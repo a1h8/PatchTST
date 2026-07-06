@@ -23,6 +23,17 @@ detector:
   detective:
     type: reconstruction
 
+# Checkpoint-backed variant (M3 load-once engine + M7 auto-resume): point both
+# faces at the retraining loop's versioned output dir and they follow latest.json,
+# picking up the newest retrained checkpoints each run (spec travels in the manifest).
+#   type: regime-switch
+#   forecast:
+#     type: patchtst-infer
+#     params: {checkpoint_dir: /data/models}
+#   detective:
+#     type: reconstruction-infer
+#     params: {checkpoint_dir: /data/models}
+
 # Knowledge base: aggregated signals queryable by kube-verdict (signal_history).
 # Add the kubeverdict-alert sink to also *push* the anomalous ones (the
 # INCIDENT verdicts) to kube-verdict's webhook as they happen (M7).
