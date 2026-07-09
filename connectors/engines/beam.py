@@ -133,10 +133,17 @@ class BeamEngine(Engine):
         *,
         streaming: bool = False,
         window: Optional[WindowSpec] = None,
+        block: bool = True,
     ) -> None:
         self._options = pipeline_options
         self._streaming = streaming
         self._window = window or WindowSpec()
+        # Whether run() waits for the job to finish. True (default) is right for
+        # batch and the in-process DirectRunner (incl. the M5 bounded-replay
+        # tests). A streaming submit to a remote runner (Dataflow / portable)
+        # must set block=False: that job runs until drained, so waiting on it
+        # would hang the driver forever instead of returning the job handle.
+        self._block = block
 
     def run(
         self,
@@ -176,7 +183,8 @@ class BeamEngine(Engine):
         else:
             self._run_batch(beam, pcoll, sinks, transform)
         result = pipeline.run()
-        result.wait_until_finish()
+        if self._block:
+            result.wait_until_finish()
         return result
 
     # -- batch -------------------------------------------------------------

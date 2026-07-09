@@ -29,6 +29,7 @@ engine:
   type: beam
   runner: portable        # PortableRunner -> standalone Beam job server
   streaming: true
+  block: false            # submit and detach; the streaming job runs until drained
   window:
     size_s: 300
     period_s: 60
