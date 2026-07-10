@@ -77,6 +77,7 @@ def build_engine(cfg: dict | None) -> Engine:
           type: beam
           runner: dataflow          # direct | dataflow | flink (default direct)
           streaming: true           # unbounded windowed path (M5); default batch
+          block: false              # detach after submit (streaming remote runs)
           window: {size_s: 60, period_s: 30, ...}   # WindowSpec, streaming only
           options: {project: ..., region: ..., temp_location: ...}  # runner opts
     """
@@ -96,7 +97,10 @@ def build_engine(cfg: dict | None) -> Engine:
             options=cfg.get("options"),
         )
         return BeamEngine(
-            pipeline_options=options, streaming=streaming, window=window
+            pipeline_options=options,
+            streaming=streaming,
+            window=window,
+            block=bool(cfg.get("block", True)),
         )
     raise KeyError(f"unknown engine {kind!r}; available: ['local', 'beam']")
 

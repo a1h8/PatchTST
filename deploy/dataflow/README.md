@@ -45,15 +45,34 @@ Copy `config/dataflow-streaming.example.yaml` and set, under `engine.options`:
 `sdk_container_image` (the `$IMAGE` above). `experiments: [use_runner_v2,
 enable_streaming_engine]` enables Runner v2 + Streaming Engine.
 
-## 3. Submit
+## 3. Pre-flight (offline, no submit)
+
+Gate the config before the slow, billable run — this contacts no infra:
+
+```sh
+python -m pipeline --check config/dataflow-streaming.example.yaml
+```
+
+It catches the boring first-submit failures: the launch-time `apache-beam`
+version drifting from the `sdk_container_image` tag (Dataflow rejects workers
+whose SDK differs from the launcher — the reason `requirements-connectors.txt`'s
+`>=` floor must be pinned to the image tag before submit), a missing/`non-gs://`
+`temp_location` or `staging_location`, a worker-unreachable local sink `root`,
+and a streaming graph with no window or one that would hang the driver. Exit
+code is non-zero on any error. A real submit (next step) runs the same checks
+first and aborts on error.
+
+## 4. Submit
 
 ```sh
 python -m pipeline config/dataflow-streaming.example.yaml
 ```
 
 `python -m pipeline` builds the pipeline and, because the runner is `dataflow`,
-`pipeline.run()` submits the job to Dataflow and returns without blocking on a
-long-running stream. The job then appears in the Dataflow console.
+`pipeline.run()` submits the job to Dataflow. The example sets `engine.block:
+false`, so the driver returns the job handle immediately instead of blocking on
+the long-running stream (with `block` unset/true it would `wait_until_finish()`
+and hang until the job drains). The job then appears in the Dataflow console.
 
 ## Monitoring
 
