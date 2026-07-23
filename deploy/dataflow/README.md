@@ -6,6 +6,11 @@ in the pipeline code changes — only the `engine:` block of the config selects 
 Dataflow-first is the deliberate M6 order (managed, least ops); Flink-on-K8s is
 the self-hosted alternative that comes next.
 
+> **Just want to run the test?** [`e2e/`](./e2e/) scripts the whole thing —
+> create resources, submit one throwaway job, tear it all down (`setup` / `run`
+> / `teardown`). ~25–45 min, < €1. The steps below are the manual walk-through
+> it automates.
+
 ## Why a custom worker image
 
 Dataflow workers run in isolated containers and must import the pipeline code

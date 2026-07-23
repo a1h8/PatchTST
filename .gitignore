@@ -471,3 +471,7 @@ $RECYCLE.BIN/
 # downloaded datasets / trained checkpoints (artifacts, not source)
 dataset/
 saved_models/
+
+# Dataflow e2e — local secrets & rendered config
+deploy/dataflow/e2e/env.sh
+deploy/dataflow/e2e/config.rendered.yaml

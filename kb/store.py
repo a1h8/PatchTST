@@ -70,8 +70,14 @@ class SignalStore:
         rows = [self._to_dict(r) for r in records]
         if not rows:
             return None
-        os.makedirs(self.root, exist_ok=True)
-        path = os.path.join(self.root, f"signals-{uuid.uuid4().hex}.parquet")
+        # Object-store roots (s3:// / gs://) have no directories to create, and
+        # os.makedirs would silently make a junk local `s3:/…` dir; pyarrow
+        # resolves the URI natively on write. Only a local root needs a mkdir.
+        remote = "://" in self.root
+        if not remote:
+            os.makedirs(self.root, exist_ok=True)
+        sep = "" if self.root.endswith("/") else "/"
+        path = f"{self.root}{sep}signals-{uuid.uuid4().hex}.parquet"
         pq.write_table(pa.Table.from_pylist(rows, schema=self._schema()), path)
         return path
 

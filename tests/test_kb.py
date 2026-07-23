@@ -90,6 +90,34 @@ def test_store_write_empty_returns_none(tmp_path):
     assert store.write([]) is None
 
 
+def test_store_write_object_store_root_skips_makedirs(monkeypatch):
+    """A gs:// / s3:// root must not os.makedirs a junk local dir; pyarrow
+    resolves the URI natively. We assert the URI path is passed through to
+    pyarrow and no local directory is created for the remote root."""
+    import kb.store as store_mod
+
+    calls = {"makedirs": 0, "path": None}
+
+    def _no_makedirs(*a, **k):
+        calls["makedirs"] += 1
+
+    def _fake_write_table(table, path, *a, **k):
+        calls["path"] = path
+
+    monkeypatch.setattr(store_mod.os, "makedirs", _no_makedirs)
+    import pyarrow.parquet as pq
+
+    monkeypatch.setattr(pq, "write_table", _fake_write_table)
+
+    store = SignalStore("gs://patchtst-kb/kb")
+    out = store.write([_rec("Pod/p/a", "cpu", 1000)])
+
+    assert calls["makedirs"] == 0  # no mkdir on an object-store root
+    assert calls["path"].startswith("gs://patchtst-kb/kb/signals-")
+    assert calls["path"].endswith(".parquet")
+    assert out == calls["path"]
+
+
 def test_store_query_limit(tmp_path):
     store = SignalStore(str(tmp_path / "kb"))
     store.write([_rec("Pod/p/a", "cpu", t) for t in (1000, 2000, 3000)])

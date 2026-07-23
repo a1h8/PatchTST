@@ -1,0 +1,42 @@
+# Rendered by e2e.sh (envsubst) into config.rendered.yaml — do not submit this
+# template directly. Mirrors config/dataflow-streaming.example.yaml but with the
+# cheapest safe knobs for a throwaway smoke test: 1 worker, a GCS sink, detach.
+#
+# The source is a synthetic unbounded stream so the test needs NO live Mimir —
+# it validates the whole submit -> window -> detect -> GCS-write path on its own.
+# Swap `synthetic-stream` for `mimir` once you point it at a real cluster.
+
+source:
+  type: synthetic-stream
+  params:
+    n_points: 240        # ~unbounded enough for a smoke test at step_s cadence
+    step_s: 60
+
+detector:
+  type: zscore           # dependency-free; keeps the worker image lean (no torch)
+
+sinks:
+  - type: signal-store
+    params:
+      root: gs://${KB_BUCKET}/kb    # pyarrow writes Parquet straight to GCS
+
+engine:
+  type: beam
+  runner: dataflow
+  streaming: true
+  block: false           # submit and detach; the job runs until drained
+  window:
+    size_s: 300
+    period_s: 60
+    allowed_lateness_s: 120
+    early_firing_count: 1
+  options:
+    project: ${PROJECT}
+    region: ${REGION}
+    temp_location: gs://${DATAFLOW_BUCKET}/tmp
+    staging_location: gs://${DATAFLOW_BUCKET}/staging
+    job_name: ${JOB_NAME}
+    sdk_container_image: ${IMAGE}
+    experiments: [use_runner_v2, enable_streaming_engine]
+    max_num_workers: ${MAX_WORKERS}
+    machine_type: ${MACHINE_TYPE}
