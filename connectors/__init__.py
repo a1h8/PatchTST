@@ -11,17 +11,18 @@ from .pivot import PivotRow
 from .registry import available, build, connector
 
 # Register built-in connectors (side-effect imports).
-from .sources import mimir as _mimir  # noqa: E402,F401
-from .sources import synthetic as _synthetic  # noqa: E402,F401
-from .sinks import parquet as _parquet  # noqa: E402,F401
+from .sinks import parquet as _parquet  # noqa: F401
+from .sources import mimir as _mimir  # noqa: F401
+from .sources import otlp as _otlp  # noqa: F401
+from .sources import synthetic as _synthetic  # noqa: F401
 
 __all__ = [
-    "PivotRow",
-    "SourceConnector",
-    "SinkConnector",
-    "connector",
-    "build",
-    "available",
     "Engine",
     "LocalEngine",
+    "PivotRow",
+    "SinkConnector",
+    "SourceConnector",
+    "available",
+    "build",
+    "connector",
 ]
