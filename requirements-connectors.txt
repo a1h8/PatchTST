@@ -8,3 +8,6 @@
 apache-beam>=2.70
 pyarrow>=14.0
 # s3fs>=2024.2    # enable for MinIO/S3 (s3://) Parquet output
+# kafka-python>=2.0   # enable for KafkaSource.read() (connector C7); the
+                       # native_beam_read() streaming path uses Beam's Kafka
+                       # expansion service instead (Docker/JDK, no extra pip dep)
