@@ -41,7 +41,7 @@ demand, not upfront.
 | #  | Question | Decision |
 |----|----------|----------|
 | D1 | Detection mechanism | ✅ **Both, regime-switching**: forecast (anticipate the wall) in NORMAL, reconstruction (detective) at the break |
-| D2 | Mimir as sole ingress, or Kafka/OTLP in parallel for low-latency live? | ✅ **Mimir-first**: Mimir (C9a) is the sole ingress for M6 — one connector, no broker, the same source as the historical KB; accepted latency is scrape + remote-write + query (~tens of s). Kafka/OTLP (C2/C7) added on-demand when sub-second forecast anticipation requires it. |
+| D2 | Mimir as sole ingress, or Kafka/OTLP in parallel for low-latency live? | ✅ **Mimir-first**: Mimir (C9a) is the sole ingress for M6 — one connector, no broker, the same source as the historical KB; accepted latency is scrape + remote-write + query (~tens of s). Kafka/OTLP (C2/C7) added on-demand when sub-second forecast anticipation requires it — **both now implemented** (`connectors/sources/kafka.py`, `connectors/sources/otlp.py`, PRs #35/#36): Kafka as an unbounded Beam-native consumer, OTLP as an embedded stdlib push receiver (no native Beam path — see the connector's docstring); live validation against a real broker/collector is still pending, alongside the M6 GCP/k3s runner validation below. |
 | D3 | Plugin discovery: internal registry vs Python entry-points | ✅ **Internal registry** |
 | D4 | Pivot schema: univariate vs native multivariate | ✅ **Native multivariate** |
 | D5 | Datalake purpose: retraining vs analytics/compliance vs both | ✅ **Knowledge base** — longitudinal signal history kube-verdict queries as RCA evidence |
