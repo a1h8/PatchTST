@@ -29,7 +29,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           # tooling + test runner (pytest/cov are dev deps, not in requirements).
-          pip install ruff pytest pytest-cov
+          # ruff pinned: unpinned installs pick up whatever the latest release's
+          # default rule set is, which has grown far beyond E/F over time and
+          # broke this previously-green config with ~90 findings across files
+          # no PR touched. Bump deliberately, not by drift.
+          pip install ruff==0.9.10 pytest pytest-cov
           # pipeline runtime (connectors + kb + pyyaml), then the torch/
           # transformers detectors, then httpx (fastapi TestClient in test_kb).
           pip install -r requirements-pipeline.txt
