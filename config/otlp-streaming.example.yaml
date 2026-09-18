@@ -1,0 +1,37 @@
+# Example OTLP config — run with:
+#   python -m pipeline config/otlp-streaming.example.yaml
+#
+# Ingests live metrics pushed by an OpenTelemetry Collector/SDK exporter
+# (connector C2) instead of polling Mimir. Per decision D2, Mimir is the sole
+# ingress for M6; OTLP is the vendor-neutral on-demand low-latency path.
+#
+# Unlike Kafka (C7), this source embeds an HTTP receiver (stdlib
+# http.server, OTLP/HTTP JSON — no extra pip dependency) rather than
+# consuming from a broker, so it has no native_beam_read: it cannot run
+# distributed across Beam workers the way an unbounded Kafka consumer can
+# (see connectors/sources/otlp.py). Use the `local` engine here, as a
+# dedicated single-process ingestion daemon — e.g. fronting a
+# collector -> this receiver -> signal-store, with Beam/streaming fed
+# downstream via Kafka (kafka-streaming.example.yaml) if distributed
+# execution is needed.
+
+source:
+  type: otlp
+  params:
+    host: 0.0.0.0
+    port: 4318
+    path: /v1/metrics
+    group_by: [service.name]
+    step_ms: 15000
+    poll_timeout_s: 5.0
+
+detector:
+  type: zscore
+
+sinks:
+  - type: signal-store
+    params:
+      root: s3://patchtst-kb/kb
+
+engine:
+  type: local
