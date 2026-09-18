@@ -1,0 +1,63 @@
+# Single-node Redpanda broker (Kafka-API-compatible) for the KafkaSource demo
+# (connector C7). `dev-container` mode is Redpanda's own single-process,
+# no-ZooKeeper, no-tuning profile for exactly this use case — a throwaway
+# broker on a small node, not a production cluster.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redpanda
+  namespace: patchtst
+  labels:
+    app: redpanda
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redpanda
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: redpanda
+    spec:
+      containers:
+        - name: redpanda
+          image: redpandadata/redpanda:v24.2.18
+          args:
+            - redpanda
+            - start
+            - --mode=dev-container
+            - --smp=1
+            - --memory=700M
+            - --kafka-addr=PLAINTEXT://0.0.0.0:9092
+            - --advertise-kafka-addr=PLAINTEXT://redpanda.patchtst.svc.cluster.local:9092
+          ports:
+            - name: kafka
+              containerPort: 9092
+          readinessProbe:
+            tcpSocket:
+              port: kafka
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redpanda
+  namespace: patchtst
+  labels:
+    app: redpanda
+spec:
+  selector:
+    app: redpanda
+  ports:
+    - name: kafka
+      port: 9092
+      targetPort: kafka

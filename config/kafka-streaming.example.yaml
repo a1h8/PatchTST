@@ -1,0 +1,47 @@
+# Example Kafka streaming config — submit with:
+#   python -m pipeline config/kafka-streaming.example.yaml
+#
+# Same source -> detection -> sink cycle as flink-streaming.example.yaml, but
+# ingests live off a Kafka/Redpanda topic (connector C7) instead of polling
+# Mimir. Per decision D2, Mimir is the sole ingress for M6; Kafka is the
+# on-demand low-latency path when sub-second forecast anticipation is needed —
+# the pipeline code and every other block here are unchanged, only `source:`
+# differs. Each message on the topic is one JSON-encoded, already-aligned
+# pivot row: {group_id, ts, values, channels, labels} (see
+# connectors/sources/kafka.py); the producer owns cross-channel alignment.
+
+source:
+  type: kafka
+  params:
+    bootstrap_servers: kafka-bootstrap.patchtst.svc.cluster.local:9092
+    topic: patchtst-metrics
+    group_id: patchtst-detector
+    auto_offset_reset: latest
+
+detector:
+  type: zscore
+
+sinks:
+  - type: signal-store
+    params:
+      root: s3://patchtst-kb/kb
+
+engine:
+  type: beam
+  runner: portable        # PortableRunner -> standalone Beam job server (deploy/flink)
+  streaming: true
+  block: false             # submit and detach; the streaming job runs until drained
+  window:
+    size_s: 300
+    period_s: 60
+    allowed_lateness_s: 120
+    early_firing_count: 1
+  options:
+    job_endpoint: beam-job-server.patchtst.svc:8099
+    environment_type: EXTERNAL
+    environment_config: localhost:50000
+    checkpointing_interval: "30000"
+    # ReadFromKafka is a cross-language transform: the worker environment must
+    # carry the Kafka expansion service's Java dependencies (see
+    # apache_beam.io.kafka default_io_expansion_service), in addition to the
+    # Python SDK harness sidecar used for the detector.
