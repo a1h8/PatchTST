@@ -243,8 +243,10 @@ Kept separate from the structured face to avoid coupling to its hardcoded
 normal connector cycle (`build → Engine.run → sink.write`), not a standalone
 write. **Read path** (`SignalStore.query` / the HTTP service) stays *outside*
 the SPI on purpose: it is request/response serving, not streaming dataflow.
-Optional secondary push: emit Alertmanager-format alerts to
-`/api/v1/webhook/alertmanager` to trigger RCA.
+Optional secondary push: the `kubeverdict-alert` sink (`kb/alert.py`) POSTs the
+anomalous `SignalRecord`s, in their native shape (mirrors kube-verdict's
+`AnomalyResult`), to kube-verdict's `/api/v1/webhook/signal` to trigger RCA —
+not the Alertmanager format `/api/v1/webhook/alertmanager` expects.
 
 ## Deployment is independent of design
 
