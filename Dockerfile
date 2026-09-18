@@ -20,7 +20,10 @@ WORKDIR /app
 
 # KB stack (pyarrow + duckdb + fastapi + uvicorn + httpx) and pipeline YAML
 # support cover the local-engine cycle, the Parquet sink and the KB service.
-# requirements-connectors.txt (Apache Beam) is intentionally NOT installed.
+# requirements-connectors.txt (Apache Beam) is intentionally NOT installed;
+# kafka-python is installed directly here instead — it's the one connector
+# runtime dep the local engine needs beyond stdlib (Mimir/parquet are stdlib
+# + pyarrow already listed above).
 COPY requirements-kb.txt ./
 # cramjam: snappy compression for connectors/ingest's live remote-write push
 # (requirements-ingest.txt) — a pure wheel, no libsnappy system package needed
@@ -30,7 +33,7 @@ COPY requirements-kb.txt ./
 # Neither was previously installed: the ingest-seed Job and every pipeline
 # CronJob tick failed on every real deployment, only caught by actually
 # running this on a real cluster (k3s).
-RUN pip install -r requirements-kb.txt "pyyaml>=6.0" "cramjam>=2.7" "numpy>=1.23"
+RUN pip install -r requirements-kb.txt "pyyaml>=6.0" "kafka-python>=2.0" "cramjam>=2.7" "numpy>=1.23"
 
 # Optional: deep-learning detectors. Off by default to keep the image small.
 ARG INSTALL_TORCH=0
