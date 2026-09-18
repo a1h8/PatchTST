@@ -18,8 +18,8 @@ fits your environment; the pipeline code does not change.
 |-----|--------|-----------|------|
 | C9a | **Grafana Mimir** | remote-write in + PromQL read | multi-tenant, single entry point, blocks on object storage |
 | C1  | Prometheus | PromQL `query_range` | direct scrape target or long-term store front-end |
-| C2  | OTLP / remote-write | live push | vendor-neutral OpenTelemetry |
-| C7  | Kafka / Redpanda | streaming bus | Redpanda lighter, no ZooKeeper |
+| C2  | **OTLP / remote-write** | live push | vendor-neutral OpenTelemetry; embedded stdlib HTTP receiver, no native Beam path (`connectors/sources/otlp.py`) |
+| C7  | **Kafka / Redpanda** | streaming bus | Redpanda lighter, no ZooKeeper; native unbounded Beam consumer (`connectors/sources/kafka.py`) |
 | C8  | NATS JetStream | streaming bus | low footprint, edge-friendly |
 | C10 | VictoriaMetrics | TSDB read/write | compact TSDB alternative |
 | C23 | Cloud Pub/Sub / Kinesis | managed streaming bus | managed-cloud option |
