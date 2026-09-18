@@ -12,6 +12,7 @@ from .registry import available, build, connector
 
 # Register built-in connectors (side-effect imports).
 from .sinks import parquet as _parquet  # noqa: F401
+from .sources import kafka as _kafka  # noqa: F401
 from .sources import mimir as _mimir  # noqa: F401
 from .sources import otlp as _otlp  # noqa: F401
 from .sources import synthetic as _synthetic  # noqa: F401
