@@ -1,0 +1,64 @@
+# Detection pipeline reading from Kafka instead of Mimir — the KafkaSource
+# (C7) analog of deploy/k3s/30-pipeline.yaml's Mimir-based CronJob. A plain
+# Job, not a CronJob: KafkaSource.read() is a bounded *drain* of whatever's on
+# the topic within poll_timeout_s (see connectors/sources/kafka.py), so
+# there's no rolling time window to recompute on each tick the way the Mimir
+# path has — re-run manually after re-seeding the topic instead.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pipeline-kafka-config
+  namespace: patchtst
+data:
+  pipeline.yaml: |
+    source:
+      type: kafka
+      params:
+        bootstrap_servers: redpanda.patchtst.svc.cluster.local:9092
+        topic: patchtst-metrics
+        group_id: patchtst-detector-demo
+        auto_offset_reset: earliest
+        poll_timeout_s: 15.0
+    detector:
+      type: zscore
+    sinks:
+      - type: signal-store
+        params:
+          root: /data/kb
+    engine:
+      type: local
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pipeline-kafka
+  namespace: patchtst
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: pipeline
+          image: patchtst-pipeline:dev
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "pipeline", "/config/pipeline.yaml"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: datalake
+              mountPath: /data/kb
+      volumes:
+        - name: config
+          configMap:
+            name: pipeline-kafka-config
+        - name: datalake
+          persistentVolumeClaim:
+            claimName: kb-datalake

@@ -1,0 +1,63 @@
+# One-shot producer Job: seed the Redpanda topic with synthetic PivotRow JSON
+# messages, the Kafka-path analog of ingest-seed (which seeds Mimir instead).
+# Same shape (60 points, 60s apart, CPU spike near the end) so the two paths
+# are directly comparable; a different group_id (node2/demo vs node1/demo)
+# keeps them distinguishable in the KB. Re-run with
+# `kubectl create job --from=cronjob/...` is not applicable here (plain Job);
+# delete + re-apply to reseed.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-producer-seed
+  namespace: patchtst
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: producer
+          image: patchtst-pipeline:dev
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              python - <<'PY'
+              import json, random, time
+              from kafka import KafkaProducer
+
+              random.seed(7)
+              now_ms = int(time.time() * 1000)
+              step_ms = 60_000
+              n = 60
+              # shift so the last point lands at "now", matching ingest-seed's --end-at-now
+              start_ms = now_ms - (n - 1) * step_ms
+
+              producer = KafkaProducer(
+                  bootstrap_servers=["redpanda.patchtst.svc.cluster.local:9092"],
+                  value_serializer=lambda v: json.dumps(v).encode(),
+              )
+              for i in range(n):
+                  cpu = 0.2 + random.gauss(0, 0.02)
+                  if 50 <= i <= 54:  # injected anomaly, same window as ingest-seed
+                      cpu = 0.95 + random.gauss(0, 0.01)
+                  mem = 0.4 + 0.004 * i + random.gauss(0, 0.01)
+                  row = {
+                      "group_id": "node2/demo",
+                      "ts": start_ms + i * step_ms,
+                      "values": [round(cpu, 4), round(mem, 4)],
+                      "channels": ["sim_cpu", "sim_mem"],
+                      "labels": {"namespace": "demo", "pod": "node2"},
+                  }
+                  producer.send("patchtst-metrics", row)
+              producer.flush()
+              print(f"produced {n} rows to patchtst-metrics")
+              PY
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 256Mi

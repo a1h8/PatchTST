@@ -1,0 +1,11 @@
+# Apply with:  kubectl apply -k deploy/kafka
+#
+# Requires the base stack (namespace + KB datalake PVC) already applied via
+# `kubectl apply -k deploy/k3s`. Layered the same way deploy/flink is: an
+# additive, on-demand overlay, not folded into the base kustomization.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - 00-redpanda.yaml
+  - 10-producer-seed.yaml
+  - 20-pipeline-kafka.yaml
