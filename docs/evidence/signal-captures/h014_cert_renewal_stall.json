@@ -1,0 +1,124 @@
+{
+  "scenario": "h014_cert_renewal_stall",
+  "description": "cert_days_remaining \u2014 renewal stall breaks the periodic reset pattern",
+  "n_points": 160,
+  "incident_at": 110,
+  "detector_epochs": 10,
+  "ticks_evaluated": [
+    72,
+    80,
+    88,
+    96,
+    104,
+    112,
+    120,
+    128,
+    136,
+    144,
+    152,
+    160
+  ],
+  "timeline": [
+    {
+      "tick": 72,
+      "severity": "normal",
+      "score": 1.247,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "zscore"
+    },
+    {
+      "tick": 80,
+      "severity": "normal",
+      "score": 1.703,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "zscore"
+    },
+    {
+      "tick": 88,
+      "severity": "normal",
+      "score": 1.768,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "zscore"
+    },
+    {
+      "tick": 96,
+      "severity": "warning",
+      "score": 2.512,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "patchtst"
+    },
+    {
+      "tick": 104,
+      "severity": "normal",
+      "score": 0.69,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "patchtst"
+    },
+    {
+      "tick": 112,
+      "severity": "normal",
+      "score": 0.775,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "patchtst"
+    },
+    {
+      "tick": 120,
+      "severity": "normal",
+      "score": 1.497,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "patchtst"
+    },
+    {
+      "tick": 128,
+      "severity": "warning",
+      "score": 2.569,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "patchtst"
+    },
+    {
+      "tick": 136,
+      "severity": "critical",
+      "score": 3.965,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "patchtst"
+    },
+    {
+      "tick": 144,
+      "severity": "critical",
+      "score": 6.218,
+      "regime": "incident",
+      "mode": "anticipation",
+      "method": "patchtst"
+    },
+    {
+      "tick": 152,
+      "severity": "normal",
+      "score": 0.873,
+      "regime": "incident",
+      "mode": "detective",
+      "method": "patchtst-recon"
+    },
+    {
+      "tick": 160,
+      "severity": "normal",
+      "score": 0.777,
+      "regime": "normal",
+      "mode": "detective",
+      "method": "patchtst-recon"
+    }
+  ],
+  "detected": true,
+  "first_incident_tick": 144,
+  "detection_latency_ticks": 34,
+  "false_positive_ticks": [],
+  "elapsed_s": 1.1
+}

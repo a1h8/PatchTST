@@ -1,0 +1,124 @@
+{
+  "scenario": "h015_etcd_compaction_stall",
+  "description": "etcd_compaction_latency_ms \u2014 post-compaction recovery stops happening",
+  "n_points": 160,
+  "incident_at": 110,
+  "detector_epochs": 10,
+  "ticks_evaluated": [
+    72,
+    80,
+    88,
+    96,
+    104,
+    112,
+    120,
+    128,
+    136,
+    144,
+    152,
+    160
+  ],
+  "timeline": [
+    {
+      "tick": 72,
+      "severity": "normal",
+      "score": 2.293,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "zscore"
+    },
+    {
+      "tick": 80,
+      "severity": "normal",
+      "score": 2.439,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "zscore"
+    },
+    {
+      "tick": 88,
+      "severity": "normal",
+      "score": 2.259,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "zscore"
+    },
+    {
+      "tick": 96,
+      "severity": "normal",
+      "score": 1.149,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "patchtst"
+    },
+    {
+      "tick": 104,
+      "severity": "critical",
+      "score": 24.472,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "patchtst"
+    },
+    {
+      "tick": 112,
+      "severity": "normal",
+      "score": 1.501,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "patchtst"
+    },
+    {
+      "tick": 120,
+      "severity": "warning",
+      "score": 2.472,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "patchtst"
+    },
+    {
+      "tick": 128,
+      "severity": "warning",
+      "score": 2.34,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "patchtst"
+    },
+    {
+      "tick": 136,
+      "severity": "normal",
+      "score": 1.35,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "patchtst"
+    },
+    {
+      "tick": 144,
+      "severity": "normal",
+      "score": 1.234,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "patchtst"
+    },
+    {
+      "tick": 152,
+      "severity": "normal",
+      "score": 0.385,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "patchtst"
+    },
+    {
+      "tick": 160,
+      "severity": "normal",
+      "score": 0.286,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "patchtst"
+    }
+  ],
+  "detected": false,
+  "first_incident_tick": null,
+  "detection_latency_ticks": null,
+  "false_positive_ticks": [],
+  "elapsed_s": 1.3
+}

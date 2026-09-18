@@ -1,0 +1,124 @@
+{
+  "scenario": "h013_network_latency",
+  "description": "p99_latency_ms \u2014 gradual network degradation, sustained after onset",
+  "n_points": 160,
+  "incident_at": 110,
+  "detector_epochs": 10,
+  "ticks_evaluated": [
+    72,
+    80,
+    88,
+    96,
+    104,
+    112,
+    120,
+    128,
+    136,
+    144,
+    152,
+    160
+  ],
+  "timeline": [
+    {
+      "tick": 72,
+      "severity": "normal",
+      "score": 2.779,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "zscore"
+    },
+    {
+      "tick": 80,
+      "severity": "normal",
+      "score": 2.837,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "zscore"
+    },
+    {
+      "tick": 88,
+      "severity": "normal",
+      "score": 2.753,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "zscore"
+    },
+    {
+      "tick": 96,
+      "severity": "normal",
+      "score": 1.103,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "patchtst"
+    },
+    {
+      "tick": 104,
+      "severity": "normal",
+      "score": 1.082,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "patchtst"
+    },
+    {
+      "tick": 112,
+      "severity": "critical",
+      "score": 3.573,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "patchtst"
+    },
+    {
+      "tick": 120,
+      "severity": "critical",
+      "score": 49.749,
+      "regime": "incident",
+      "mode": "anticipation",
+      "method": "patchtst"
+    },
+    {
+      "tick": 128,
+      "severity": "normal",
+      "score": 0.427,
+      "regime": "incident",
+      "mode": "detective",
+      "method": "patchtst-recon"
+    },
+    {
+      "tick": 136,
+      "severity": "normal",
+      "score": 0.96,
+      "regime": "normal",
+      "mode": "detective",
+      "method": "patchtst-recon"
+    },
+    {
+      "tick": 144,
+      "severity": "critical",
+      "score": 131.365,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "patchtst"
+    },
+    {
+      "tick": 152,
+      "severity": "warning",
+      "score": 2.279,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "patchtst"
+    },
+    {
+      "tick": 160,
+      "severity": "normal",
+      "score": 1.733,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "patchtst"
+    }
+  ],
+  "detected": true,
+  "first_incident_tick": 120,
+  "detection_latency_ticks": 10,
+  "false_positive_ticks": [],
+  "elapsed_s": 7.0
+}

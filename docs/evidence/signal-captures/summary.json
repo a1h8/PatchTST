@@ -1,0 +1,23 @@
+[
+  {
+    "scenario": "h013_network_latency",
+    "detected": true,
+    "detection_latency_ticks": 10,
+    "false_positive_ticks": [],
+    "elapsed_s": 7.0
+  },
+  {
+    "scenario": "h014_cert_renewal_stall",
+    "detected": true,
+    "detection_latency_ticks": 34,
+    "false_positive_ticks": [],
+    "elapsed_s": 1.1
+  },
+  {
+    "scenario": "h015_etcd_compaction_stall",
+    "detected": false,
+    "detection_latency_ticks": null,
+    "false_positive_ticks": [],
+    "elapsed_s": 1.3
+  }
+]
