@@ -51,3 +51,25 @@ def test_patchtst_too_few_training_windows_falls_back():
     # train split (17) yields no full training window -> z-score fallback.
     r = _tiny().detect("e", "cpu", [10.0] * 22, ts=1)
     assert r.method == "zscore"
+
+
+def test_holdout_windows_targets_start_at_train_end():
+    import numpy as np
+
+    from detection.patchtst import _holdout_windows
+
+    sig = np.arange(100, dtype=np.float32)
+    pairs = _holdout_windows(sig, train_end=60, context_length=16, prediction_length=4, chunks=3)
+    assert len(pairs) == 3
+    # targets are consecutive and start exactly at train_end (never trained on)
+    assert [int(t[0]) for _, t in pairs] == [60, 64, 68]
+    # contexts are the history immediately before each target
+    assert [int(c[-1]) for c, _ in pairs] == [59, 63, 67]
+
+
+def test_patchtst_series_too_short_to_hold_out_falls_back():
+    pytest.importorskip("torch")
+    pytest.importorskip("transformers")
+    # 30 points: 80% split = 24, minus 3 held-out chunks of 4 = 12 < 16 + 4.
+    r = _tiny().detect("e", "cpu", [float(i % 5) for i in range(30)], ts=1)
+    assert r.method == "zscore"
