@@ -3,20 +3,30 @@
   "description": "cert_days_remaining \u2014 renewal stall breaks the periodic reset pattern",
   "n_points": 160,
   "incident_at": 110,
-  "detector_epochs": 10,
+  "detector_epochs": 30,
+  "detector_d_model": 32,
+  "detector_num_layers": 2,
+  "tick_step": 5,
+  "enter_after": 2,
   "ticks_evaluated": [
     72,
-    80,
-    88,
-    96,
-    104,
+    77,
+    82,
+    87,
+    92,
+    97,
+    102,
+    107,
     112,
-    120,
-    128,
-    136,
-    144,
+    117,
+    122,
+    127,
+    132,
+    137,
+    142,
+    147,
     152,
-    160
+    157
   ],
   "timeline": [
     {
@@ -28,73 +38,121 @@
       "method": "zscore"
     },
     {
-      "tick": 80,
+      "tick": 77,
       "severity": "normal",
-      "score": 1.703,
+      "score": 1.519,
       "regime": "normal",
       "mode": "anticipation",
       "method": "zscore"
     },
     {
-      "tick": 88,
+      "tick": 82,
       "severity": "normal",
-      "score": 1.768,
+      "score": 1.708,
       "regime": "normal",
       "mode": "anticipation",
       "method": "zscore"
     },
     {
-      "tick": 96,
-      "severity": "warning",
-      "score": 2.512,
+      "tick": 87,
+      "severity": "normal",
+      "score": 1.756,
       "regime": "normal",
       "mode": "anticipation",
-      "method": "patchtst"
+      "method": "zscore"
     },
     {
-      "tick": 104,
+      "tick": 92,
       "severity": "normal",
-      "score": 0.69,
+      "score": 1.819,
       "regime": "normal",
       "mode": "anticipation",
-      "method": "patchtst"
+      "method": "zscore"
+    },
+    {
+      "tick": 97,
+      "severity": "normal",
+      "score": 1.878,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "zscore"
+    },
+    {
+      "tick": 102,
+      "severity": "normal",
+      "score": 1.918,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "zscore"
+    },
+    {
+      "tick": 107,
+      "severity": "normal",
+      "score": 1.555,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "zscore"
     },
     {
       "tick": 112,
       "severity": "normal",
-      "score": 0.775,
+      "score": 1.287,
       "regime": "normal",
       "mode": "anticipation",
-      "method": "patchtst"
+      "method": "zscore"
     },
     {
-      "tick": 120,
+      "tick": 117,
       "severity": "normal",
-      "score": 1.497,
+      "score": 1.476,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "zscore"
+    },
+    {
+      "tick": 122,
+      "severity": "normal",
+      "score": 0.554,
       "regime": "normal",
       "mode": "anticipation",
       "method": "patchtst"
     },
     {
-      "tick": 128,
-      "severity": "warning",
-      "score": 2.569,
+      "tick": 127,
+      "severity": "normal",
+      "score": 0.668,
       "regime": "normal",
       "mode": "anticipation",
       "method": "patchtst"
     },
     {
-      "tick": 136,
+      "tick": 132,
+      "severity": "normal",
+      "score": 0.959,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "patchtst"
+    },
+    {
+      "tick": 137,
+      "severity": "normal",
+      "score": 1.493,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "patchtst"
+    },
+    {
+      "tick": 142,
       "severity": "critical",
-      "score": 3.965,
+      "score": 9.118,
       "regime": "normal",
       "mode": "anticipation",
       "method": "patchtst"
     },
     {
-      "tick": 144,
+      "tick": 147,
       "severity": "critical",
-      "score": 6.218,
+      "score": 7.41,
       "regime": "incident",
       "mode": "anticipation",
       "method": "patchtst"
@@ -102,23 +160,23 @@
     {
       "tick": 152,
       "severity": "normal",
-      "score": 0.873,
+      "score": 0.423,
       "regime": "incident",
       "mode": "detective",
       "method": "patchtst-recon"
     },
     {
-      "tick": 160,
-      "severity": "normal",
-      "score": 0.777,
-      "regime": "normal",
+      "tick": 157,
+      "severity": "critical",
+      "score": 6.577,
+      "regime": "incident",
       "mode": "detective",
       "method": "patchtst-recon"
     }
   ],
   "detected": true,
-  "first_incident_tick": 144,
-  "detection_latency_ticks": 34,
+  "first_incident_tick": 147,
+  "detection_latency_ticks": 37,
   "false_positive_ticks": [],
-  "elapsed_s": 1.1
+  "elapsed_s": 5.5
 }

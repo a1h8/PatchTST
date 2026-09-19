@@ -17,6 +17,7 @@ from .inference_detector import (
     ReconstructionInferenceDetector,
     clear_engine_cache,
 )
+from .levelshift import level_shift_score
 from .patchtst import PatchTSTDetector
 from .reconstruction import ReconstructionDetector
 from .regime import (
@@ -47,6 +48,7 @@ __all__ = [
     "MADThreshold",
     "build_threshold",
     "RegimeSwitchDetector",
+    "level_shift_score",
     "InMemoryRegimeState",
     "KBSeededRegimeState",
     "RegimeStatus",

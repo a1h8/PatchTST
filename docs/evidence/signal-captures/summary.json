@@ -2,22 +2,22 @@
   {
     "scenario": "h013_network_latency",
     "detected": true,
-    "detection_latency_ticks": 10,
+    "detection_latency_ticks": 7,
     "false_positive_ticks": [],
-    "elapsed_s": 7.0
+    "elapsed_s": 13.8
   },
   {
     "scenario": "h014_cert_renewal_stall",
     "detected": true,
-    "detection_latency_ticks": 34,
+    "detection_latency_ticks": 37,
     "false_positive_ticks": [],
-    "elapsed_s": 1.1
+    "elapsed_s": 5.5
   },
   {
     "scenario": "h015_etcd_compaction_stall",
-    "detected": false,
-    "detection_latency_ticks": null,
+    "detected": true,
+    "detection_latency_ticks": 12,
     "false_positive_ticks": [],
-    "elapsed_s": 1.3
+    "elapsed_s": 7.0
   }
 ]
