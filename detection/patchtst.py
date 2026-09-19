@@ -57,6 +57,9 @@ class PatchTSTDetector(Detector):
     lr: float = 5e-4
     warning: float = 1.8
     critical: float = 3.0
+    # Trailing prediction-length chunks of the train split held out (never
+    # trained on) to measure the baseline error out-of-sample.
+    holdout_chunks: int = 3
     fallback: Detector = field(default_factory=ZScoreDetector)
 
     method = "patchtst"
@@ -100,9 +103,17 @@ class PatchTSTDetector(Detector):
         norm = (v - mu) / sigma
 
         split = max(self.context_length, int(len(norm) * 0.80))
-        windows = _sliding_windows(norm[:split], self.context_length, self.prediction_length)
-        if not windows:
+        # Train only on targets that end before the held-out tail; the baseline
+        # is then measured on that tail, which the model never saw. An in-sample
+        # baseline collapses toward 0 as the model overfits, so any unseen
+        # window scores as a huge ratio (critical everywhere).
+        train_end = split - self.holdout_chunks * self.prediction_length
+        if train_end < self.context_length + self.prediction_length:
             return self.fallback.detect(entity_uid, metric_name, v, ts, labels)
+        windows = _sliding_windows(norm[:train_end], self.context_length, self.prediction_length)
+        holdout = _holdout_windows(
+            norm, train_end, self.context_length, self.prediction_length, self.holdout_chunks
+        )
 
         config = PatchTSTConfig(
             num_input_channels=1,
@@ -142,7 +153,7 @@ class PatchTSTDetector(Detector):
             pred = model(past_values=past).prediction_outputs.squeeze().numpy()
 
         eval_rmse = float(np.sqrt(np.mean((pred - tgt) ** 2)))
-        baseline = _baseline_rmse(model, windows[-5:], torch)
+        baseline = _baseline_rmse(model, holdout, torch)
         score = eval_rmse / max(baseline, 1e-8)
 
         return SignalRecord(
@@ -155,6 +166,18 @@ class PatchTSTDetector(Detector):
             n_points=int(len(v)),
             labels=dict(labels or {}),
         )
+
+
+def _holdout_windows(
+    signal: np.ndarray, train_end: int, context_length: int, prediction_length: int, chunks: int
+) -> list[tuple[np.ndarray, np.ndarray]]:
+    """Consecutive (context, target) pairs whose targets start at ``train_end``:
+    contexts are history (may overlap the training data), targets are unseen."""
+    pairs = []
+    for j in range(chunks):
+        t0 = train_end + j * prediction_length
+        pairs.append((signal[t0 - context_length : t0].copy(), signal[t0 : t0 + prediction_length].copy()))
+    return pairs
 
 
 def _baseline_rmse(model, windows, torch) -> float:
