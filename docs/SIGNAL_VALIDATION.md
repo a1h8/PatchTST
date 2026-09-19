@@ -47,10 +47,11 @@ periodic CronJob tick against an accumulating/rolling window):
   `enter_after=2` consecutive critical forecasts). `null` = missed entirely.
 - **`false_positive_ticks`** — any tick *before* `incident_at` where the
   regime already reads `incident`.
-- **`elapsed_s`** — wall-clock cost of the capture (CPU-only, reduced
-  capacity — `d_model=16`, `epochs=10` vs. the prod default `d_model=32`,
-  `epochs=30` — this harness measures detection *logic*, not production
-  training time).
+- **`elapsed_s`** — wall-clock cost of the capture (CPU-only). Runs at the
+  production model capacity by default (`d_model=32`, 2 layers, `epochs=30`),
+  with ticks every 5 points — the deployed `*/5` CronJob over 60 s points. An
+  earlier version of this harness ran at reduced capacity (`d_model=16`,
+  `epochs=10`); see the findings below for why that was not representative.
 
 Results are frozen as versioned JSON under `docs/evidence/signal-captures/`,
 one file per scenario plus `summary.json` — a captured artifact, not a
@@ -73,9 +74,54 @@ Any scenario failing this gate is a detector/threshold problem to fix
 three clear, a live run's only remaining question is deployment mechanics
 (the connector, the runner, the provider), not detection quality.
 
+## Findings from the first captures (and what changed)
+
+The first real run (reduced capacity, ticks every 8 points) reported 2/3, with
+h015 missed. Chasing that showed the harness itself was hiding worse problems:
+
+1. **The forecast baseline was measured in-sample.** `PatchTSTDetector` scored
+   `eval_rmse / baseline_rmse` with the baseline taken on training windows. The
+   better the model overfits (30 epochs, or one training window early in the
+   series), the closer the baseline gets to 0, so any unseen window scored as a
+   huge ratio: at production capacity every scenario flipped to `incident` on
+   the same warm-up tick (scores up to ×4000). The reduced-capacity run had
+   masked this. The baseline is now measured on a held-out tail the model never
+   trained on (`holdout_chunks`), and the detector falls back to z-score until the
+   series is long enough to hold it out.
+2. **Both faces are blind to a sustained level shift.** Global z-normalisation
+   and the model's per-window scaling remove the level, and a forecaster
+   re-trained on a window that already contains a plateau learns the new level.
+   h015 (latency that stops recovering) was therefore only visible at the instant
+   it starts, so detection depended on the phase of the ticks relative to the
+   onset (caught with ticks every 1, 2 or 4 points, missed at 5 and 8). Denser
+   ticks that "detected" it did so with negative latency — false positives on the
+   periodic spikes, not a detection. `detection/levelshift.py` adds a robust
+   check (median of the recent window vs the window's own baseline, in MAD
+   units): at or above `level_critical` (8) it counts as a break in NORMAL and
+   blocks recovery in INCIDENT, so the level-blind reconstruction face cannot end
+   an incident while the plateau persists. It is enabled by default;
+   `level_critical: null` turns it off. Legitimate trends (memory ramps, disk
+   fill, daily cycles) scored under 3.2 in an ad-hoc spot check (not a committed test).
+3. **Tick spacing matters and must match the deployment.** Results are reported
+   for the CronJob cadence (`--step 5`). The same three scenarios were also swept
+   over steps 1–8 at reduced capacity: all detected with zero false positives at
+   every step.
+
 ## Reruns
 
 ```sh
-python -m tools.capture_signals                      # defaults: epochs=10, step=8
-python -m tools.capture_signals --epochs 30 --step 4  # closer to prod capacity, slower
+python -m tools.capture_signals                              # prod capacity, step 5 (the gate)
+python -m tools.capture_signals --epochs 10 --d-model 16 --layers 1 --step 8   # fast
 ```
+
+Needs torch/transformers (`requirements-detection-patchtst.txt`); the
+`patchtst-pipeline:torch` image (`--build-arg INSTALL_TORCH=1`) has them.
+
+## Current status
+
+At production capacity, step 5: h013 detected (7 ticks), h014 detected
+(37 ticks), h015 detected (12 ticks), zero false positives on all three — the gate
+above clears on the synthetic scenarios. Caveats: latency is in ticks of 60 s
+points; h014's 37 ticks is long for anything but a slow, days-scale expiry; and
+these are synthetic series — the level-shift threshold in particular has only been
+spot-checked against realistic trends, not against real metric history.
