@@ -39,10 +39,24 @@ def _checkpoints(n_points: int, min_len: int, step: int) -> list[int]:
     return list(range(min_len, n_points + 1, step))
 
 
-def run_scenario(name: str, values, incident_at: int, description: str, *, epochs: int, step: int) -> dict:
-    forecast = PatchTSTDetector(epochs=epochs, d_model=16, num_layers=1)
-    detective = ReconstructionDetector(epochs=epochs, d_model=16, num_layers=1)
-    detector = RegimeSwitchDetector(forecast=forecast, detective=detective, enter_after=2, exit_after=2)
+def run_scenario(
+    name: str,
+    values,
+    incident_at: int,
+    description: str,
+    *,
+    epochs: int,
+    step: int,
+    d_model: int = 32,
+    num_layers: int = 2,
+    enter_after: int = 2,
+    exit_after: int = 2,
+) -> dict:
+    forecast = PatchTSTDetector(epochs=epochs, d_model=d_model, num_layers=num_layers)
+    detective = ReconstructionDetector(epochs=epochs, d_model=d_model, num_layers=num_layers)
+    detector = RegimeSwitchDetector(
+        forecast=forecast, detective=detective, enter_after=enter_after, exit_after=exit_after
+    )
 
     min_len = forecast.context_length + forecast.prediction_length
     ticks = _checkpoints(len(values), min_len, step)
@@ -76,6 +90,10 @@ def run_scenario(name: str, values, incident_at: int, description: str, *, epoch
         "n_points": len(values),
         "incident_at": incident_at,
         "detector_epochs": epochs,
+        "detector_d_model": d_model,
+        "detector_num_layers": num_layers,
+        "tick_step": step,
+        "enter_after": enter_after,
         "ticks_evaluated": ticks,
         "timeline": timeline,
         "detected": first_incident_tick is not None,
@@ -89,10 +107,17 @@ def run_scenario(name: str, values, incident_at: int, description: str, *, epoch
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
-        "--epochs", type=int, default=10,
-        help="training epochs per tick (reduced from the prod default of 30 for harness speed)",
+        "--epochs", type=int, default=30,
+        help="training epochs per tick (prod default; use 10 with --d-model 16 --layers 1 for a fast run)",
     )
-    parser.add_argument("--step", type=int, default=8, help="tick spacing (points between checkpoints)")
+    parser.add_argument(
+        "--step", type=int, default=5,
+        help="tick spacing in points (5 = the deployed */5 CronJob over 60s points)",
+    )
+    parser.add_argument("--d-model", type=int, default=32, help="PatchTST width (prod default)")
+    parser.add_argument("--layers", type=int, default=2, help="PatchTST layers (prod default)")
+    parser.add_argument("--enter-after", type=int, default=2, help="debounce: consecutive critical forecasts")
+    parser.add_argument("--exit-after", type=int, default=2, help="debounce: consecutive normal reconstructions")
     parser.add_argument("--out", default=str(ROOT / "docs/evidence/signal-captures"))
     args = parser.parse_args(argv)
 
@@ -102,7 +127,11 @@ def main(argv: list[str] | None = None) -> int:
     summary = []
     for name, (values, incident_at, description) in SCENARIOS.items():
         print(f"[{name}] running ({len(values)} points, epochs={args.epochs})...")
-        result = run_scenario(name, values, incident_at, description, epochs=args.epochs, step=args.step)
+        result = run_scenario(
+            name, values, incident_at, description,
+            epochs=args.epochs, step=args.step, d_model=args.d_model, num_layers=args.layers,
+            enter_after=args.enter_after, exit_after=args.exit_after,
+        )
         (out_dir / f"{name}.json").write_text(json.dumps(result, indent=2))
         status = "DETECTED" if result["detected"] else "MISSED"
         fp = len(result["false_positive_ticks"])
