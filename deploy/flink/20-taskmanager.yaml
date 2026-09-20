@@ -40,15 +40,22 @@ spec:
               subPath: flink-conf.yaml
           resources:
             requests: { cpu: 250m, memory: 2Gi }
-        # Python SDK harness: runs the pipeline's Python code on demand.
+        # Python SDK harness: runs the pipeline's Python code on demand. Must be
+        # OUR worker image (deploy/dataflow/Dockerfile: Beam SDK + connectors,
+        # detection, kb, inference): the stock beam_python3.11_sdk image cannot
+        # unpickle the pipeline's DoFns (ModuleNotFoundError: connectors).
+        #   docker build -f deploy/dataflow/Dockerfile -t patchtst-beam-worker:2.74.0 .
         - name: beam-worker-pool
-          image: apache/beam_python3.11_sdk:2.74.0
+          image: patchtst-beam-worker:2.74.0
+          imagePullPolicy: IfNotPresent
           command: ["/opt/apache/beam/boot"]
           args: ["--worker_pool"]
           ports:
             - { name: worker-pool, containerPort: 50000 }
+          envFrom:
+            - secretRef: { name: flink-s3-creds }   # AWS_* for the s3:// signal sink
           resources:
-            requests: { cpu: 100m, memory: 512Mi }
+            requests: { cpu: 100m, memory: 1Gi }
       volumes:
         - name: flink-config
           configMap:

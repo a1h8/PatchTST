@@ -33,8 +33,11 @@ RUN if [ "$INSTALL_TORCH" = "1" ]; then \
     fi
 
 # Application code the workers import (source/detector/sink/engine).
+# inference/ is required even for the zscore path: detection/__init__.py imports
+# it at module load (same missing-COPY bug the k3s image had).
 COPY connectors/ ./connectors/
 COPY detection/ ./detection/
+COPY inference/ ./inference/
 COPY kb/ ./kb/
 COPY pipeline/ ./pipeline/
 
