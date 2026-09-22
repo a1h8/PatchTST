@@ -47,6 +47,7 @@ demand, not upfront.
 | D5 | Datalake purpose: retraining vs analytics/compliance vs both | ✅ **Knowledge base** — longitudinal signal history kube-verdict queries as RCA evidence |
 | D6 | Engine coupling: Beam in the contract vs engine-agnostic core | ✅ **Engine-agnostic** (ports & adapters): Local + Beam engines, Spark/Databricks next |
 | D7 | How kube-verdict consumes the knowledge base | ✅ **Structured datalake first** (`kb/`: SignalRecord + DuckDB query + `signal_history` API); semantic Weaviate face next; don't re-implement its detector |
+| D8 | Model serving: in-process (trained on the fly / loaded once per worker) vs a served model (Triton/ONNX) | ⏳ **Open, in-process for now** — see the "Model serving is a separate axis" note in [ARCHITECTURE.md](./ARCHITECTURE.md#execution-engines--ports--adapters-d6); revisit once a checkpoint is stable enough to be its own deployment unit |
 
 ## Scope note — SPI vs catalog
 
