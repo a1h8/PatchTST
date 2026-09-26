@@ -109,7 +109,13 @@ threshold problem:
   recent window looks like. `tools/capture_signals.py` doesn't exercise
   these yet; that's the next concrete step, not further threshold tuning on
   the train-on-the-fly detectors.
-- **h016's false-positive count is not perfectly reproducible run-to-run**
+- **h016 is a calibration problem, not an infra one:** the detector
+  misreads isolated, unrelated benign blips as `critical` — it has not
+  learned to tell "one-off noise" apart from a real sustained shift. This is
+  the same axis as h015 (both are properties of the trained model's
+  behavior), just the opposite failure mode: h015 under-reacts to a real
+  sustained incident, h016 over-reacts to noise that isn't one.
+- **Its false-positive count is also not perfectly reproducible run-to-run**
   (2 on one run, 4 on another, same code, same input data) — the scenario
   data has a fixed RNG seed, but neither detector's own torch training seeds
   its weight init, so the "Deterministic... so captures are reproducible"
