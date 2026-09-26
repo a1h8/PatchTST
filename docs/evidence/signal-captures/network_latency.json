@@ -1,8 +1,8 @@
 {
-  "scenario": "h016_noisy_baseline_no_incident",
-  "description": "pod_restart_count \u2014 noisy healthy baseline with benign one-off blips, never a real incident",
+  "scenario": "network_latency",
+  "description": "p99_latency_ms \u2014 gradual network degradation, sustained after onset",
   "n_points": 160,
-  "incident_at": 160,
+  "incident_at": 110,
   "detector_epochs": 10,
   "ticks_evaluated": [
     72,
@@ -22,7 +22,7 @@
     {
       "tick": 72,
       "severity": "normal",
-      "score": 0.966,
+      "score": 2.779,
       "regime": "normal",
       "mode": "anticipation",
       "method": "zscore"
@@ -30,7 +30,7 @@
     {
       "tick": 80,
       "severity": "normal",
-      "score": 1.227,
+      "score": 2.837,
       "regime": "normal",
       "mode": "anticipation",
       "method": "zscore"
@@ -38,92 +38,87 @@
     {
       "tick": 88,
       "severity": "normal",
-      "score": 1.258,
+      "score": 2.753,
       "regime": "normal",
       "mode": "anticipation",
       "method": "zscore"
     },
     {
       "tick": 96,
-      "severity": "critical",
-      "score": 24.801,
+      "severity": "normal",
+      "score": 1.154,
       "regime": "normal",
       "mode": "anticipation",
       "method": "patchtst"
     },
     {
       "tick": 104,
-      "severity": "critical",
-      "score": 7.685,
-      "regime": "incident",
+      "severity": "normal",
+      "score": 1.082,
+      "regime": "normal",
       "mode": "anticipation",
       "method": "patchtst"
     },
     {
       "tick": 112,
-      "severity": "normal",
-      "score": 0.778,
-      "regime": "incident",
-      "mode": "detective",
-      "method": "patchtst-recon"
+      "severity": "critical",
+      "score": 3.582,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "patchtst"
     },
     {
       "tick": 120,
-      "severity": "normal",
-      "score": 1.264,
-      "regime": "normal",
-      "mode": "detective",
-      "method": "patchtst-recon"
+      "severity": "critical",
+      "score": 50.047,
+      "regime": "incident",
+      "mode": "anticipation",
+      "method": "patchtst"
     },
     {
       "tick": 128,
-      "severity": "critical",
-      "score": 3.05,
-      "regime": "normal",
-      "mode": "anticipation",
-      "method": "patchtst"
+      "severity": "normal",
+      "score": 0.9,
+      "regime": "incident",
+      "mode": "detective",
+      "method": "patchtst-recon"
     },
     {
       "tick": 136,
+      "severity": "normal",
+      "score": 0.79,
+      "regime": "normal",
+      "mode": "detective",
+      "method": "patchtst-recon"
+    },
+    {
+      "tick": 144,
       "severity": "critical",
-      "score": 11.138,
-      "regime": "incident",
+      "score": 126.643,
+      "regime": "normal",
       "mode": "anticipation",
       "method": "patchtst"
     },
     {
-      "tick": 144,
-      "severity": "normal",
-      "score": 0.913,
-      "regime": "incident",
-      "mode": "detective",
-      "method": "patchtst-recon"
-    },
-    {
       "tick": 152,
-      "severity": "normal",
-      "score": 0.384,
+      "severity": "warning",
+      "score": 2.584,
       "regime": "normal",
-      "mode": "detective",
-      "method": "patchtst-recon"
+      "mode": "anticipation",
+      "method": "patchtst"
     },
     {
       "tick": 160,
       "severity": "normal",
-      "score": 1.769,
+      "score": 0.806,
       "regime": "normal",
       "mode": "anticipation",
       "method": "patchtst"
     }
   ],
   "detected": true,
-  "first_incident_tick": 104,
-  "detection_latency_ticks": -56,
-  "false_positive_ticks": [
-    104,
-    112,
-    136,
-    144
-  ],
-  "elapsed_s": 0.9
+  "first_incident_tick": 120,
+  "detection_latency_ticks": 10,
+  "false_positive_ticks": [],
+  "elapsed_s": 39.4
 }

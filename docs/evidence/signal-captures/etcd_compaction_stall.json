@@ -1,5 +1,5 @@
 {
-  "scenario": "h015_etcd_compaction_stall",
+  "scenario": "etcd_compaction_stall",
   "description": "etcd_compaction_latency_ms \u2014 post-compaction recovery stops happening",
   "n_points": 160,
   "incident_at": 110,
@@ -46,7 +46,7 @@
     {
       "tick": 96,
       "severity": "normal",
-      "score": 1.425,
+      "score": 0.939,
       "regime": "normal",
       "mode": "anticipation",
       "method": "patchtst"
@@ -54,7 +54,7 @@
     {
       "tick": 104,
       "severity": "critical",
-      "score": 19.294,
+      "score": 23.9,
       "regime": "normal",
       "mode": "anticipation",
       "method": "patchtst"
@@ -62,7 +62,7 @@
     {
       "tick": 112,
       "severity": "normal",
-      "score": 1.541,
+      "score": 1.51,
       "regime": "normal",
       "mode": "anticipation",
       "method": "patchtst"
@@ -70,7 +70,7 @@
     {
       "tick": 120,
       "severity": "warning",
-      "score": 2.318,
+      "score": 2.461,
       "regime": "normal",
       "mode": "anticipation",
       "method": "patchtst"
@@ -78,7 +78,7 @@
     {
       "tick": 128,
       "severity": "warning",
-      "score": 2.267,
+      "score": 2.237,
       "regime": "normal",
       "mode": "anticipation",
       "method": "patchtst"
@@ -86,7 +86,7 @@
     {
       "tick": 136,
       "severity": "normal",
-      "score": 1.298,
+      "score": 1.228,
       "regime": "normal",
       "mode": "anticipation",
       "method": "patchtst"
@@ -94,7 +94,7 @@
     {
       "tick": 144,
       "severity": "normal",
-      "score": 1.244,
+      "score": 1.22,
       "regime": "normal",
       "mode": "anticipation",
       "method": "patchtst"
@@ -102,7 +102,7 @@
     {
       "tick": 152,
       "severity": "normal",
-      "score": 0.463,
+      "score": 0.43,
       "regime": "normal",
       "mode": "anticipation",
       "method": "patchtst"
@@ -110,7 +110,7 @@
     {
       "tick": 160,
       "severity": "normal",
-      "score": 0.253,
+      "score": 0.202,
       "regime": "normal",
       "mode": "anticipation",
       "method": "patchtst"
@@ -120,5 +120,5 @@
   "first_incident_tick": null,
   "detection_latency_ticks": null,
   "false_positive_ticks": [],
-  "elapsed_s": 1.1
+  "elapsed_s": 7.1
 }

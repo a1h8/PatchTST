@@ -1,14 +1,19 @@
-"""Synthetic time-series scenarios for h013+ (roadmap B14: "network latency,
-cert expiry, etcd compaction") plus a negative control (h016).
+"""Synthetic time-series scenarios validating D1 (RegimeSwitchDetector) on its
+own terms, plus a negative control.
+
+Named for the signal shape each one is, not for any consumer's incident
+catalog or numbering — this suite belongs to PatchTST and validates its own
+detection logic; the decoupling principle in docs/ARCHITECTURE.md applies to
+tests the same way it applies to the runtime coupling with kube-verdict.
 
 Each scenario is a single-channel series with a known ground-truth
-``incident_at`` index, designed to exercise a *specific* face of D1
-(RegimeSwitchDetector): a slow, forecastable degradation should trip the
-forecast/anticipation face; a break in a learned periodic/structural pattern
-should trip the reconstruction/detective face. h016 is the exception —
-``incident_at = n`` (never) marks a noisy-but-healthy series where the
-detector must stay quiet the whole way through; see its docstring. This is
-what ``tools/capture_signals.py`` measures against.
+``incident_at`` index, designed to exercise a *specific* face of D1: a slow,
+forecastable degradation should trip the forecast/anticipation face; a break
+in a learned periodic/structural pattern should trip the
+reconstruction/detective face. ``noisy_baseline_no_incident`` is the
+exception — ``incident_at = n`` (never) marks a noisy-but-healthy series
+where the detector must stay quiet the whole way through; see its docstring.
+This is what ``tools/capture_signals.py`` measures against.
 
 Deterministic (fixed RNG seeds) so captures are reproducible.
 """
@@ -20,7 +25,7 @@ import numpy as np
 Scenario = tuple[np.ndarray, int, str]
 
 
-def h013_network_latency(n: int = 160, incident_at: int = 110, ramp_len: int = 15) -> Scenario:
+def network_latency(n: int = 160, incident_at: int = 110, ramp_len: int = 15) -> Scenario:
     """p99 latency: flat baseline, then a slow ramp to a sustained elevated
     level (a real degrading link/route — never recovers on its own).
     Exercises: forecast/anticipation face (predictable trend breaking the
@@ -35,7 +40,7 @@ def h013_network_latency(n: int = 160, incident_at: int = 110, ramp_len: int = 1
     return values, incident_at, "p99_latency_ms — gradual network degradation, sustained after onset"
 
 
-def h014_cert_renewal_stall(n: int = 160, incident_at: int = 110, period: int = 40) -> Scenario:
+def cert_renewal_stall(n: int = 160, incident_at: int = 110, period: int = 40) -> Scenario:
     """cert_days_remaining: a sawtooth (renewal resets the countdown every
     ``period`` ticks) that stalls — the expected reset stops happening and the
     countdown runs straight through zero into negative (already-expired) days.
@@ -54,7 +59,7 @@ def h014_cert_renewal_stall(n: int = 160, incident_at: int = 110, period: int = 
     return values, incident_at, "cert_days_remaining — renewal stall breaks the periodic reset pattern"
 
 
-def h015_etcd_compaction_stall(
+def etcd_compaction_stall(
     n: int = 160, incident_at: int = 110, spike_period: int = 20, spike_len: int = 3
 ) -> Scenario:
     """etcd request latency: periodic transient compaction spikes that fully
@@ -74,7 +79,7 @@ def h015_etcd_compaction_stall(
     return values, incident_at, "etcd_compaction_latency_ms — post-compaction recovery stops happening"
 
 
-def h016_noisy_baseline_no_incident(n: int = 160) -> Scenario:
+def noisy_baseline_no_incident(n: int = 160) -> Scenario:
     """pod_restart_count: noisy but genuinely healthy the whole window —
     three isolated single-tick blips (a benign restart during a routine
     rollout) that fully recover immediately, no real incident anywhere.
@@ -82,8 +87,8 @@ def h016_noisy_baseline_no_incident(n: int = 160) -> Scenario:
     means every evaluated tick is "pre-incident", so any tick the regime
     reads ``incident`` is a false positive — this is what
     ``enter_after``/``exit_after`` anti-flapping exists to prevent. A detector
-    that is well-tuned against h013-h015 but cries wolf on ordinary noise
-    is not ready to page anyone.
+    that is well-tuned against the other scenarios but cries wolf on ordinary
+    noise is not ready to page anyone.
     """
     rng = np.random.default_rng(16)
     values = 2.0 + rng.normal(0.0, 0.4, n)
@@ -94,8 +99,8 @@ def h016_noisy_baseline_no_incident(n: int = 160) -> Scenario:
 
 
 SCENARIOS: dict[str, Scenario] = {
-    "h013_network_latency": h013_network_latency(),
-    "h014_cert_renewal_stall": h014_cert_renewal_stall(),
-    "h015_etcd_compaction_stall": h015_etcd_compaction_stall(),
-    "h016_noisy_baseline_no_incident": h016_noisy_baseline_no_incident(),
+    "network_latency": network_latency(),
+    "cert_renewal_stall": cert_renewal_stall(),
+    "etcd_compaction_stall": etcd_compaction_stall(),
+    "noisy_baseline_no_incident": noisy_baseline_no_incident(),
 }
