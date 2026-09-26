@@ -25,9 +25,16 @@ spec:
       containers:
         - name: job-server
           image: apache/beam_flink1.18_job_server:2.74.0
+          env:
+            # The server advertises --job-host to clients as the artifact and
+            # expansion endpoint. With 0.0.0.0 a remote driver connects to
+            # itself ("Failed to connect to 0.0.0.0:8098"), so advertise the
+            # pod IP, which is routable inside the cluster.
+            - name: POD_IP
+              valueFrom: { fieldRef: { fieldPath: status.podIP } }
           args:
             - "--flink-master=flink-jobmanager:8081"
-            - "--job-host=0.0.0.0"
+            - "--job-host=$(POD_IP)"
             - "--job-port=8099"
             - "--artifact-port=8098"
             - "--expansion-port=8097"

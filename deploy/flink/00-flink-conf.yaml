@@ -23,6 +23,11 @@ data:
   flink-conf.yaml: |
     jobmanager.rpc.address: flink-jobmanager
     jobmanager.rpc.port: 6123
+    # Default is an ephemeral (random) port, which the flink-jobmanager
+    # Service's fixed "blob" port (6124) can't forward to — TaskManagers in
+    # other pods then fail to fetch job JARs ("Could not connect to
+    # BlobServer at ...:<random port>"). Pin it to match the Service.
+    blob.server.port: 6124
     jobmanager.memory.process.size: 1024m
     taskmanager.memory.process.size: 2048m
     taskmanager.numberOfTaskSlots: 2
