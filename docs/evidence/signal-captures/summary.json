@@ -4,20 +4,32 @@
     "detected": true,
     "detection_latency_ticks": 10,
     "false_positive_ticks": [],
-    "elapsed_s": 7.0
+    "elapsed_s": 6.8
   },
   {
     "scenario": "h014_cert_renewal_stall",
     "detected": true,
     "detection_latency_ticks": 34,
     "false_positive_ticks": [],
-    "elapsed_s": 1.1
+    "elapsed_s": 1.0
   },
   {
     "scenario": "h015_etcd_compaction_stall",
     "detected": false,
     "detection_latency_ticks": null,
     "false_positive_ticks": [],
-    "elapsed_s": 1.3
+    "elapsed_s": 1.1
+  },
+  {
+    "scenario": "h016_noisy_baseline_no_incident",
+    "detected": true,
+    "detection_latency_ticks": -56,
+    "false_positive_ticks": [
+      104,
+      112,
+      136,
+      144
+    ],
+    "elapsed_s": 0.9
   }
 ]

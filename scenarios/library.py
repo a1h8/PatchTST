@@ -1,12 +1,14 @@
 """Synthetic time-series scenarios for h013+ (roadmap B14: "network latency,
-cert expiry, etcd compaction").
+cert expiry, etcd compaction") plus a negative control (h016).
 
 Each scenario is a single-channel series with a known ground-truth
 ``incident_at`` index, designed to exercise a *specific* face of D1
 (RegimeSwitchDetector): a slow, forecastable degradation should trip the
 forecast/anticipation face; a break in a learned periodic/structural pattern
-should trip the reconstruction/detective face. This is what
-``tools/capture_signals.py`` measures against.
+should trip the reconstruction/detective face. h016 is the exception —
+``incident_at = n`` (never) marks a noisy-but-healthy series where the
+detector must stay quiet the whole way through; see its docstring. This is
+what ``tools/capture_signals.py`` measures against.
 
 Deterministic (fixed RNG seeds) so captures are reproducible.
 """
@@ -72,8 +74,28 @@ def h015_etcd_compaction_stall(
     return values, incident_at, "etcd_compaction_latency_ms — post-compaction recovery stops happening"
 
 
+def h016_noisy_baseline_no_incident(n: int = 160) -> Scenario:
+    """pod_restart_count: noisy but genuinely healthy the whole window —
+    three isolated single-tick blips (a benign restart during a routine
+    rollout) that fully recover immediately, no real incident anywhere.
+    Negative control, not a fourth incident shape: ``incident_at = n`` (never)
+    means every evaluated tick is "pre-incident", so any tick the regime
+    reads ``incident`` is a false positive — this is what
+    ``enter_after``/``exit_after`` anti-flapping exists to prevent. A detector
+    that is well-tuned against h013-h015 but cries wolf on ordinary noise
+    is not ready to page anyone.
+    """
+    rng = np.random.default_rng(16)
+    values = 2.0 + rng.normal(0.0, 0.4, n)
+    for i in (40, 90, 130):
+        values[i] += 6.0  # isolated, non-repeating, self-recovering blip
+    values = np.clip(values, 0.0, None)
+    return values, n, "pod_restart_count — noisy healthy baseline with benign one-off blips, never a real incident"
+
+
 SCENARIOS: dict[str, Scenario] = {
     "h013_network_latency": h013_network_latency(),
     "h014_cert_renewal_stall": h014_cert_renewal_stall(),
     "h015_etcd_compaction_stall": h015_etcd_compaction_stall(),
+    "h016_noisy_baseline_no_incident": h016_noisy_baseline_no_incident(),
 }
