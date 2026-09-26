@@ -54,6 +54,14 @@ spec:
             - { name: worker-pool, containerPort: 50000 }
           envFrom:
             - secretRef: { name: flink-s3-creds }   # AWS_* for the s3:// signal sink
+          env:
+            # Without this, every pyarrow.fs S3FileSystem construction (kb/store.py
+            # runs one per window write) first probes the EC2 metadata service
+            # (169.254.169.254) for creds/region, has no route to it here, and
+            # pays an ~8s timeout before falling back to the env credentials —
+            # multiplied across windows this stalls the job for minutes.
+            - name: AWS_EC2_METADATA_DISABLED
+              value: "true"
           resources:
             requests: { cpu: 100m, memory: 1Gi }
       volumes:
