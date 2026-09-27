@@ -134,6 +134,40 @@ out not to be a threshold problem:
   fixed torch seed in the harness if `noisy_baseline_no_incident` becomes the
   thing being tuned against.
 
+## Follow-up (2026-09-27) — frozen checkpoint verified against `etcd_compaction_stall`
+
+The "likely real fix" above is now verified, not just proposed:
+`tools/verify_h015_inference.py` trains small forecast+reconstruction
+checkpoints on a long (2000-tick) run of *only* the pre-incident periodic
+pattern (never sees the incident), freezes them, and runs
+`ForecastInferenceDetector`/`ReconstructionInferenceDetector` (wrapped in the
+same `RegimeSwitchDetector`) against the real `etcd_compaction_stall` series.
+
+- **Detects at tick ~116 (latency ~6 ticks), 0 false positives before
+  `incident_at`** — versus a total miss for the train-on-the-fly pair, and
+  competitive with `network_latency`'s 10-tick latency. Scores at the break
+  are unambiguous (critical, 18-35 vs. a 1.8/3.0 warning/critical threshold),
+  not a borderline call.
+- **New, different limitation found**: the regime does not *stay* INCIDENT
+  indefinitely — it drifts back to NORMAL after roughly 30-40 more ticks,
+  even though the frozen model's weights never change and the incident in
+  the scenario never actually ends. Root cause is `_score()`'s own rolling
+  baseline (`inference_detector.py`): it's an empirical baseline computed
+  from recent windows of the *same growing `v`*, not something the frozen
+  model "knows" as normal. Once most of that recent history is itself
+  past `incident_at`, the baseline windows are scored against the same
+  frozen model as the eval window, so both come out elevated and the ratio
+  normalizes back toward 1.0 — a second, different way to "dilute" a
+  sustained anomaly, this time in the score's baseline math rather than the
+  model's weights.
+- **Net assessment**: a real, substantial improvement (correct, fast, clean
+  entry) with a distinct remaining gap (sustained alerting) — not wired into
+  `capture_signals.py`'s regular run since it trains its own
+  scenario-specific checkpoint from scratch (~1-2 min), kept as a standalone,
+  on-demand verification for now. Fixing the baseline-dilution gap would mean
+  seeding `_baseline()` from a fixed reference/validation window instead of
+  the live growing series — not attempted here.
+
 ## Reruns
 
 ```sh
