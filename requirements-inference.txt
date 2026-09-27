@@ -3,7 +3,8 @@
 #   pip install -r requirements-inference.txt
 #
 # Unlike the on-the-fly PatchTSTDetector (which pulls transformers), the M1 engine
-# runs the vendored PatchTST_self_supervised model directly: torch + numpy only.
+# runs the vendored PatchTST_self_supervised package (vendor/patchtst-upstream
+# git submodule) directly: torch + numpy only.
 # Imports are lazy, so `import inference` works without these until you actually
 # load a checkpoint or run forecast/reconstruct.
 torch>=2.0

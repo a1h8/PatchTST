@@ -1,26 +1,29 @@
-# PatchTST — Temporal Evidence Layer for KubeVerdict
+# Temporal Evidence Engine
 
-> **This repository is a fork** of the official PatchTST implementation:
-> *"A Time Series is Worth 64 Words: Long-term Forecasting with Transformers"* — ICLR 2023.
->
-> This fork adapts PatchTST into an **operational temporal-evidence pipeline for
-> [KubeVerdict](https://github.com/a1h8/kube-verdict)**. It does **not** replace
-> Kubernetes RCA and does **not** claim autonomous incident prediction. It produces
-> temporal variation signals — forecast residuals, reconstruction errors, z-score
-> fallbacks and regime transitions — that **strengthen or weaken** evidence-ranked
-> RCA hypotheses in KubeVerdict.
+> An operational temporal-evidence pipeline for
+> [KubeVerdict](https://github.com/a1h8/kube-verdict), built on
+> [PatchTST](https://github.com/yuqinie98/PatchTST) — *"A Time Series is Worth
+> 64 Words: Long-term Forecasting with Transformers"* (ICLR 2023). It does
+> **not** replace Kubernetes RCA and does **not** claim autonomous incident
+> prediction. It produces temporal variation signals — forecast residuals,
+> reconstruction errors, z-score fallbacks and regime transitions — that
+> **strengthen or weaken** evidence-ranked RCA hypotheses in KubeVerdict.
 >
 > **Status:** the operational pipeline is designed and partially implemented with
 > **synthetic / fixture-based** time-series scenarios. Real Prometheus-backed
 > telemetry integration is the next validation step before claiming production-grade
 > temporal evidence.
 >
-> **What this fork adds:** connector interfaces · detection pipeline · inference
-> wrappers · reconstruction-based anomaly signals · fallback detectors · k3s
-> deployment assets · KubeVerdict integration path.
+> **What this project adds on top of PatchTST:** connector interfaces ·
+> detection pipeline · inference wrappers · reconstruction-based anomaly
+> signals · fallback detectors · k3s deployment assets · KubeVerdict
+> integration path.
 >
-> The original work below is unchanged and remains under Apache-2.0; upstream
-> license, attribution and citation are preserved.
+> PatchTST itself is vendored as the [`vendor/patchtst-upstream`](vendor/patchtst-upstream)
+> git submodule (only the self-supervised reconstruction model is used — see
+> [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)). The original work below is
+> unchanged and remains under Apache-2.0; upstream license, attribution and
+> citation are preserved.
 
 ---
 
@@ -73,7 +76,10 @@ Our PatchTST consistently <ins>reduces the MSE scores as the look-back window in
 
 ## Getting Started
 
-We seperate our codes for supervised learning and self-supervised learning into 2 folders: ```PatchTST_supervised``` and ```PatchTST_self_supervised```. Please choose the one that you want to work with.
+The original codes for supervised learning and self-supervised learning live in
+2 folders inside the `vendor/patchtst-upstream` submodule: ```PatchTST_supervised```
+and ```PatchTST_self_supervised``` (run `git submodule update --init` first).
+Please choose the one that you want to work with.
 
 ### Supervised Learning
 

@@ -20,7 +20,10 @@ from typing import Callable
 
 import numpy as np
 
+from ._vendor import ensure_vendor_path
 from .config import ModelSpec
+
+ensure_vendor_path()
 
 log = logging.getLogger(__name__)
 

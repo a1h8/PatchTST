@@ -60,11 +60,13 @@ and back up, whichever provider you choose.
 **Decided (D1): dual detector, regime-switching.** Two signals on one PatchTST
 pipeline, each used where it is reliable:
 
-- **Forecast — anticipation** (`PatchTST_supervised`). In the normal/trending
-  regime the model forecasts the trajectory; a predicted threshold crossing
-  within horizon `h` raises an early **WARN**. This is the "see the wall coming"
-  path, scoped to slow-saturation metrics (disk, memory, quota, latency drift).
-- **Reconstruction — detective** (`PatchTST_self_supervised`). A brutal break
+- **Forecast — anticipation** (`transformers.PatchTSTForPrediction`, HuggingFace).
+  In the normal/trending regime the model forecasts the trajectory; a predicted
+  threshold crossing within horizon `h` raises an early **WARN**. This is the
+  "see the wall coming" path, scoped to slow-saturation metrics (disk, memory,
+  quota, latency drift).
+- **Reconstruction — detective** (vendored `PatchTST_self_supervised`, via the
+  `vendor/patchtst-upstream` submodule). A brutal break
   pushes the input out-of-distribution, where the forecaster collapses (its
   predictions become unreliable exactly when needed). Reconstruction error spikes
   cleanly on OOD input, so at the break the verdict switches to this signal — no
