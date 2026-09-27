@@ -131,7 +131,7 @@ footer.muted { margin-top: 24px; text-align: center; }
   <header class="page-header">
     <div>
       <h1>PatchTST Signal Validation</h1>
-      <p class="muted">Offline capture — 3 scenario(s), no cluster, no cloud spend</p>
+      <p class="muted">Offline capture — 4 scenario(s), no cluster, no cloud spend</p>
     </div>
     <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode">◐</button>
   </header>
@@ -139,7 +139,7 @@ footer.muted { margin-top: 24px; text-align: center; }
   <section class="gate-tile status-warning">
     <div class="gate-icon">✕</div>
     <div>
-      <div class="gate-hero">2 / 3</div>
+      <div class="gate-hero">3 / 4</div>
       <div class="gate-label">NOT READY — deploy gate NOT cleared</div>
     </div>
   </section>
@@ -147,17 +147,17 @@ footer.muted { margin-top: 24px; text-align: center; }
   <section class="cards">
     <article class="card">
       <div class="card-head">
-        <h2>h013_network_latency</h2>
-        <p class="muted">p99_latency_ms — gradual network degradation, sustained after onset</p>
+        <h2>cert_renewal_stall</h2>
+        <p class="muted">cert_days_remaining — renewal stall breaks the periodic reset pattern</p>
       </div>
       <div class="badge-row">
         <span class="badge status-good"><span aria-hidden="true">✓</span> DETECTED</span>
-        <div class="stat"><span class="stat-label">Latency</span><span class="stat-value">10<span class="stat-unit"> ticks</span></span></div>
+        <div class="stat"><span class="stat-label">Latency</span><span class="stat-value">34<span class="stat-unit"> ticks</span></span></div>
         <div class="stat"><span class="stat-label">False positives</span><span class="stat-value">0</span></div>
-        <div class="stat"><span class="stat-label">Runtime</span><span class="stat-value">7.0<span class="stat-unit"> s</span></span></div>
+        <div class="stat"><span class="stat-label">Runtime</span><span class="stat-value">9.3<span class="stat-unit"> s</span></span></div>
       </div>
       <div class="chart-wrap" data-scenario-index="0">
-        <svg class="chart-svg" data-scenario-index="0" role="img" aria-label="Score over ticks for h013_network_latency"></svg>
+        <svg class="chart-svg" data-scenario-index="0" role="img" aria-label="Score over ticks for cert_renewal_stall"></svg>
         <div class="tooltip" hidden></div>
       </div>
       <button class="table-toggle" data-scenario-index="0" aria-expanded="false">Show table view</button>
@@ -165,17 +165,17 @@ footer.muted { margin-top: 24px; text-align: center; }
     </article>
     <article class="card">
       <div class="card-head">
-        <h2>h014_cert_renewal_stall</h2>
-        <p class="muted">cert_days_remaining — renewal stall breaks the periodic reset pattern</p>
+        <h2>etcd_compaction_stall</h2>
+        <p class="muted">etcd_compaction_latency_ms — post-compaction recovery stops happening</p>
       </div>
       <div class="badge-row">
-        <span class="badge status-good"><span aria-hidden="true">✓</span> DETECTED</span>
-        <div class="stat"><span class="stat-label">Latency</span><span class="stat-value">34<span class="stat-unit"> ticks</span></span></div>
+        <span class="badge status-critical"><span aria-hidden="true">✕</span> MISSED</span>
+        <div class="stat"><span class="stat-label">Latency</span><span class="stat-value">—<span class="stat-unit"> ticks</span></span></div>
         <div class="stat"><span class="stat-label">False positives</span><span class="stat-value">0</span></div>
-        <div class="stat"><span class="stat-label">Runtime</span><span class="stat-value">1.1<span class="stat-unit"> s</span></span></div>
+        <div class="stat"><span class="stat-label">Runtime</span><span class="stat-value">7.1<span class="stat-unit"> s</span></span></div>
       </div>
       <div class="chart-wrap" data-scenario-index="1">
-        <svg class="chart-svg" data-scenario-index="1" role="img" aria-label="Score over ticks for h014_cert_renewal_stall"></svg>
+        <svg class="chart-svg" data-scenario-index="1" role="img" aria-label="Score over ticks for etcd_compaction_stall"></svg>
         <div class="tooltip" hidden></div>
       </div>
       <button class="table-toggle" data-scenario-index="1" aria-expanded="false">Show table view</button>
@@ -183,28 +183,46 @@ footer.muted { margin-top: 24px; text-align: center; }
     </article>
     <article class="card">
       <div class="card-head">
-        <h2>h015_etcd_compaction_stall</h2>
-        <p class="muted">etcd_compaction_latency_ms — post-compaction recovery stops happening</p>
+        <h2>network_latency</h2>
+        <p class="muted">p99_latency_ms — gradual network degradation, sustained after onset</p>
       </div>
       <div class="badge-row">
-        <span class="badge status-critical"><span aria-hidden="true">✕</span> MISSED</span>
-        <div class="stat"><span class="stat-label">Latency</span><span class="stat-value">—<span class="stat-unit"> ticks</span></span></div>
+        <span class="badge status-good"><span aria-hidden="true">✓</span> DETECTED</span>
+        <div class="stat"><span class="stat-label">Latency</span><span class="stat-value">10<span class="stat-unit"> ticks</span></span></div>
         <div class="stat"><span class="stat-label">False positives</span><span class="stat-value">0</span></div>
-        <div class="stat"><span class="stat-label">Runtime</span><span class="stat-value">1.3<span class="stat-unit"> s</span></span></div>
+        <div class="stat"><span class="stat-label">Runtime</span><span class="stat-value">39.4<span class="stat-unit"> s</span></span></div>
       </div>
       <div class="chart-wrap" data-scenario-index="2">
-        <svg class="chart-svg" data-scenario-index="2" role="img" aria-label="Score over ticks for h015_etcd_compaction_stall"></svg>
+        <svg class="chart-svg" data-scenario-index="2" role="img" aria-label="Score over ticks for network_latency"></svg>
         <div class="tooltip" hidden></div>
       </div>
       <button class="table-toggle" data-scenario-index="2" aria-expanded="false">Show table view</button>
       <div class="table-wrap" data-scenario-index="2" hidden></div>
+    </article>
+    <article class="card">
+      <div class="card-head">
+        <h2>noisy_baseline_no_incident</h2>
+        <p class="muted">pod_restart_count — noisy healthy baseline with benign one-off blips, never a real incident</p>
+      </div>
+      <div class="badge-row">
+        <span class="badge status-warning"><span aria-hidden="true">✓</span> DETECTED</span>
+        <div class="stat"><span class="stat-label">Latency</span><span class="stat-value">-56<span class="stat-unit"> ticks</span></span></div>
+        <div class="stat"><span class="stat-label">False positives</span><span class="stat-value">2</span></div>
+        <div class="stat"><span class="stat-label">Runtime</span><span class="stat-value">1.3<span class="stat-unit"> s</span></span></div>
+      </div>
+      <div class="chart-wrap" data-scenario-index="3">
+        <svg class="chart-svg" data-scenario-index="3" role="img" aria-label="Score over ticks for noisy_baseline_no_incident"></svg>
+        <div class="tooltip" hidden></div>
+      </div>
+      <button class="table-toggle" data-scenario-index="3" aria-expanded="false">Show table view</button>
+      <div class="table-wrap" data-scenario-index="3" hidden></div>
     </article>
   </section>
 
   <footer class="muted">Generated by tools/render_dashboard.py from docs/evidence/signal-captures/</footer>
 </div>
 
-<script type="application/json" id="capture-data">[{"scenario": "h013_network_latency", "description": "p99_latency_ms \u2014 gradual network degradation, sustained after onset", "n_points": 160, "incident_at": 110, "detector_epochs": 10, "ticks_evaluated": [72, 80, 88, 96, 104, 112, 120, 128, 136, 144, 152, 160], "timeline": [{"tick": 72, "severity": "normal", "score": 2.779, "regime": "normal", "mode": "anticipation", "method": "zscore"}, {"tick": 80, "severity": "normal", "score": 2.837, "regime": "normal", "mode": "anticipation", "method": "zscore"}, {"tick": 88, "severity": "normal", "score": 2.753, "regime": "normal", "mode": "anticipation", "method": "zscore"}, {"tick": 96, "severity": "normal", "score": 1.103, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 104, "severity": "normal", "score": 1.082, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 112, "severity": "critical", "score": 3.573, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 120, "severity": "critical", "score": 49.749, "regime": "incident", "mode": "anticipation", "method": "patchtst"}, {"tick": 128, "severity": "normal", "score": 0.427, "regime": "incident", "mode": "detective", "method": "patchtst-recon"}, {"tick": 136, "severity": "normal", "score": 0.96, "regime": "normal", "mode": "detective", "method": "patchtst-recon"}, {"tick": 144, "severity": "critical", "score": 131.365, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 152, "severity": "warning", "score": 2.279, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 160, "severity": "normal", "score": 1.733, "regime": "normal", "mode": "anticipation", "method": "patchtst"}], "detected": true, "first_incident_tick": 120, "detection_latency_ticks": 10, "false_positive_ticks": [], "elapsed_s": 7.0}, {"scenario": "h014_cert_renewal_stall", "description": "cert_days_remaining \u2014 renewal stall breaks the periodic reset pattern", "n_points": 160, "incident_at": 110, "detector_epochs": 10, "ticks_evaluated": [72, 80, 88, 96, 104, 112, 120, 128, 136, 144, 152, 160], "timeline": [{"tick": 72, "severity": "normal", "score": 1.247, "regime": "normal", "mode": "anticipation", "method": "zscore"}, {"tick": 80, "severity": "normal", "score": 1.703, "regime": "normal", "mode": "anticipation", "method": "zscore"}, {"tick": 88, "severity": "normal", "score": 1.768, "regime": "normal", "mode": "anticipation", "method": "zscore"}, {"tick": 96, "severity": "warning", "score": 2.512, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 104, "severity": "normal", "score": 0.69, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 112, "severity": "normal", "score": 0.775, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 120, "severity": "normal", "score": 1.497, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 128, "severity": "warning", "score": 2.569, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 136, "severity": "critical", "score": 3.965, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 144, "severity": "critical", "score": 6.218, "regime": "incident", "mode": "anticipation", "method": "patchtst"}, {"tick": 152, "severity": "normal", "score": 0.873, "regime": "incident", "mode": "detective", "method": "patchtst-recon"}, {"tick": 160, "severity": "normal", "score": 0.777, "regime": "normal", "mode": "detective", "method": "patchtst-recon"}], "detected": true, "first_incident_tick": 144, "detection_latency_ticks": 34, "false_positive_ticks": [], "elapsed_s": 1.1}, {"scenario": "h015_etcd_compaction_stall", "description": "etcd_compaction_latency_ms \u2014 post-compaction recovery stops happening", "n_points": 160, "incident_at": 110, "detector_epochs": 10, "ticks_evaluated": [72, 80, 88, 96, 104, 112, 120, 128, 136, 144, 152, 160], "timeline": [{"tick": 72, "severity": "normal", "score": 2.293, "regime": "normal", "mode": "anticipation", "method": "zscore"}, {"tick": 80, "severity": "normal", "score": 2.439, "regime": "normal", "mode": "anticipation", "method": "zscore"}, {"tick": 88, "severity": "normal", "score": 2.259, "regime": "normal", "mode": "anticipation", "method": "zscore"}, {"tick": 96, "severity": "normal", "score": 1.149, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 104, "severity": "critical", "score": 24.472, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 112, "severity": "normal", "score": 1.501, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 120, "severity": "warning", "score": 2.472, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 128, "severity": "warning", "score": 2.34, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 136, "severity": "normal", "score": 1.35, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 144, "severity": "normal", "score": 1.234, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 152, "severity": "normal", "score": 0.385, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 160, "severity": "normal", "score": 0.286, "regime": "normal", "mode": "anticipation", "method": "patchtst"}], "detected": false, "first_incident_tick": null, "detection_latency_ticks": null, "false_positive_ticks": [], "elapsed_s": 1.3}]</script>
+<script type="application/json" id="capture-data">[{"scenario": "cert_renewal_stall", "description": "cert_days_remaining \u2014 renewal stall breaks the periodic reset pattern", "n_points": 160, "incident_at": 110, "detector_epochs": 10, "ticks_evaluated": [72, 80, 88, 96, 104, 112, 120, 128, 136, 144, 152, 160], "timeline": [{"tick": 72, "severity": "normal", "score": 1.247, "regime": "normal", "mode": "anticipation", "method": "zscore"}, {"tick": 80, "severity": "normal", "score": 1.703, "regime": "normal", "mode": "anticipation", "method": "zscore"}, {"tick": 88, "severity": "normal", "score": 1.768, "regime": "normal", "mode": "anticipation", "method": "zscore"}, {"tick": 96, "severity": "warning", "score": 2.031, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 104, "severity": "normal", "score": 0.794, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 112, "severity": "normal", "score": 0.796, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 120, "severity": "normal", "score": 1.573, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 128, "severity": "warning", "score": 1.99, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 136, "severity": "critical", "score": 5.544, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 144, "severity": "critical", "score": 4.243, "regime": "incident", "mode": "anticipation", "method": "patchtst"}, {"tick": 152, "severity": "normal", "score": 0.714, "regime": "incident", "mode": "detective", "method": "patchtst-recon"}, {"tick": 160, "severity": "normal", "score": 0.458, "regime": "normal", "mode": "detective", "method": "patchtst-recon"}], "detected": true, "first_incident_tick": 144, "detection_latency_ticks": 34, "false_positive_ticks": [], "elapsed_s": 9.3}, {"scenario": "etcd_compaction_stall", "description": "etcd_compaction_latency_ms \u2014 post-compaction recovery stops happening", "n_points": 160, "incident_at": 110, "detector_epochs": 10, "ticks_evaluated": [72, 80, 88, 96, 104, 112, 120, 128, 136, 144, 152, 160], "timeline": [{"tick": 72, "severity": "normal", "score": 2.293, "regime": "normal", "mode": "anticipation", "method": "zscore"}, {"tick": 80, "severity": "normal", "score": 2.439, "regime": "normal", "mode": "anticipation", "method": "zscore"}, {"tick": 88, "severity": "normal", "score": 2.259, "regime": "normal", "mode": "anticipation", "method": "zscore"}, {"tick": 96, "severity": "normal", "score": 0.939, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 104, "severity": "critical", "score": 23.9, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 112, "severity": "normal", "score": 1.51, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 120, "severity": "warning", "score": 2.461, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 128, "severity": "warning", "score": 2.237, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 136, "severity": "normal", "score": 1.228, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 144, "severity": "normal", "score": 1.22, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 152, "severity": "normal", "score": 0.43, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 160, "severity": "normal", "score": 0.202, "regime": "normal", "mode": "anticipation", "method": "patchtst"}], "detected": false, "first_incident_tick": null, "detection_latency_ticks": null, "false_positive_ticks": [], "elapsed_s": 7.1}, {"scenario": "network_latency", "description": "p99_latency_ms \u2014 gradual network degradation, sustained after onset", "n_points": 160, "incident_at": 110, "detector_epochs": 10, "ticks_evaluated": [72, 80, 88, 96, 104, 112, 120, 128, 136, 144, 152, 160], "timeline": [{"tick": 72, "severity": "normal", "score": 2.779, "regime": "normal", "mode": "anticipation", "method": "zscore"}, {"tick": 80, "severity": "normal", "score": 2.837, "regime": "normal", "mode": "anticipation", "method": "zscore"}, {"tick": 88, "severity": "normal", "score": 2.753, "regime": "normal", "mode": "anticipation", "method": "zscore"}, {"tick": 96, "severity": "normal", "score": 1.154, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 104, "severity": "normal", "score": 1.082, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 112, "severity": "critical", "score": 3.582, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 120, "severity": "critical", "score": 50.047, "regime": "incident", "mode": "anticipation", "method": "patchtst"}, {"tick": 128, "severity": "normal", "score": 0.9, "regime": "incident", "mode": "detective", "method": "patchtst-recon"}, {"tick": 136, "severity": "normal", "score": 0.79, "regime": "normal", "mode": "detective", "method": "patchtst-recon"}, {"tick": 144, "severity": "critical", "score": 126.643, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 152, "severity": "warning", "score": 2.584, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 160, "severity": "normal", "score": 0.806, "regime": "normal", "mode": "anticipation", "method": "patchtst"}], "detected": true, "first_incident_tick": 120, "detection_latency_ticks": 10, "false_positive_ticks": [], "elapsed_s": 39.4}, {"scenario": "noisy_baseline_no_incident", "description": "pod_restart_count \u2014 noisy healthy baseline with benign one-off blips, never a real incident", "n_points": 160, "incident_at": 160, "detector_epochs": 10, "ticks_evaluated": [72, 80, 88, 96, 104, 112, 120, 128, 136, 144, 152, 160], "timeline": [{"tick": 72, "severity": "normal", "score": 0.966, "regime": "normal", "mode": "anticipation", "method": "zscore"}, {"tick": 80, "severity": "normal", "score": 1.227, "regime": "normal", "mode": "anticipation", "method": "zscore"}, {"tick": 88, "severity": "normal", "score": 1.258, "regime": "normal", "mode": "anticipation", "method": "zscore"}, {"tick": 96, "severity": "critical", "score": 30.425, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 104, "severity": "critical", "score": 5.772, "regime": "incident", "mode": "anticipation", "method": "patchtst"}, {"tick": 112, "severity": "normal", "score": 0.773, "regime": "incident", "mode": "detective", "method": "patchtst-recon"}, {"tick": 120, "severity": "normal", "score": 1.269, "regime": "normal", "mode": "detective", "method": "patchtst-recon"}, {"tick": 128, "severity": "warning", "score": 2.803, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 136, "severity": "critical", "score": 10.743, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 144, "severity": "warning", "score": 2.2, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 152, "severity": "critical", "score": 3.078, "regime": "normal", "mode": "anticipation", "method": "patchtst"}, {"tick": 160, "severity": "normal", "score": 1.768, "regime": "normal", "mode": "anticipation", "method": "patchtst"}], "detected": true, "first_incident_tick": 104, "detection_latency_ticks": -56, "false_positive_ticks": [104, 112], "elapsed_s": 1.3}]</script>
 <script>
 
 (function () {

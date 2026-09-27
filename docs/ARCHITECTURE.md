@@ -204,6 +204,19 @@ Trade-off (accepted): "plug any engine" is not free — each engine needs its
 adapter, and engine-native features are not portable for nothing. But the core,
 connectors, and detection logic are written once, engine-free.
 
+**Model serving is a separate axis from the pipeline engine (not built).** The
+engines above run the *pipeline* (source → detect → sink); PatchTST inference
+itself runs in-process either way — trained on the fly per window
+(`detection/patchtst.py`, `detection/reconstruction.py`) or loaded once per
+worker from a checkpoint (`inference/`, roadmap M1/M3). A served-model
+alternative — export to TorchScript/ONNX, serve behind Triton (which supports
+PyTorch, ONNX Runtime, and Python backends with versioned model management) —
+would decouple the model's lifecycle (versioning, rollout, scaling) from the
+pipeline worker's, at the cost of a network hop per window and one more
+service to operate. Worth revisiting once a checkpoint is stable enough to be
+a deployment unit of its own; not needed while training-on-the-fly and
+load-once-per-worker cover the current scale.
+
 ## Knowledge base — feeding kube-verdict (D7)
 
 This pipeline is the **signal-aggregation / knowledge-base layer** for
@@ -247,6 +260,15 @@ Optional secondary push: the `kubeverdict-alert` sink (`kb/alert.py`) POSTs the
 anomalous `SignalRecord`s, in their native shape (mirrors kube-verdict's
 `AnomalyResult`), to kube-verdict's `/api/v1/webhook/signal` to trigger RCA —
 not the Alertmanager format `/api/v1/webhook/alertmanager` expects.
+
+**Decoupling principle.** This pipeline does not belong to kube-verdict
+conceptually, and kube-verdict is not coupled to PatchTST. It is one
+interchangeable predictive-anomaly evidence source among several kube-verdict
+could consume the same way — Alertmanager, Falco, eBPF, an SLO burn-rate
+alert — over the same webhook/query contract (the `AnomalyResult`-shaped
+`SignalRecord` above). Nothing on either side assumes the other is *the*
+signal producer; that is what keeps kube-verdict from becoming a single AIOps
+monolith as more sources are added.
 
 ## Deployment is independent of design
 

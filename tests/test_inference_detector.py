@@ -68,6 +68,35 @@ def test_forecast_tail_spike_is_critical():
     assert sig.score > 3.0
 
 
+def test_forecast_sustained_anomaly_detected_shortly_after_onset():
+    # A step that never recovers, just past the step: the baseline windows
+    # (drawn from v[:split]) are still almost entirely pre-step, so the eval
+    # window's elevated error stands out cleanly.
+    v = _flat(50, 0.1) + _flat(10, 10.0)
+    sig = ForecastInferenceDetector(engine=FakeEngine()).detect("e", "m", v, ts=1)
+    assert sig.severity == "critical"
+    assert sig.score > 50
+
+
+def test_forecast_baseline_dilutes_and_severity_reverts_to_normal_long_after_onset():
+    """Characterizes the gap SIGNAL_VALIDATION.md's 2026-09-27 follow-up found:
+    a frozen checkpoint's *own* weights never drift, but ``_score()``'s rolling
+    baseline (``_InferenceDetector._score`` / ``_baseline``) is computed from
+    recent windows of the same growing series. Long enough after a *sustained*
+    (never-recovering) anomaly, most of those baseline windows are themselves
+    post-onset, so baseline and eval error both read elevated and the ratio
+    normalizes back toward 1.0 -- the detector reports 'normal' even though
+    the anomaly never ended and the model never changed. Not a fix: this locks
+    in the known behavior so a real fix (seeding the baseline from a fixed
+    reference window instead of the live series) shows up as this test
+    needing to change, not silently regressing further.
+    """
+    v = _flat(50, 0.1) + _flat(200, 10.0)  # step at index 50, sustained forever
+    sig = ForecastInferenceDetector(engine=FakeEngine()).detect("e", "m", v, ts=1)
+    assert sig.severity == "normal"
+    assert sig.score == pytest.approx(1.0, abs=1e-6)
+
+
 def test_forecast_short_series_falls_back_to_zscore():
     sig = ForecastInferenceDetector(engine=FakeEngine()).detect("e", "m", _flat(10), ts=1)
     assert sig.method == "zscore"

@@ -6,8 +6,11 @@
 # would need an RWX volume k3s' local-path does not provide.
 #
 # S3 endpoint lives here (non-secret); credentials come from the flink-s3-creds
-# Secret as AWS_* env on the JM/TM pods (see 10-/20-). After a Flink/Beam bump,
-# keep the image tags and the beam_flink<ver>_job_server tag in lockstep.
+# Secret as AWS_* env on the JM/TM pods (see 10-/20-). That Secret is created
+# out-of-band (see README) and deliberately NOT part of this kustomization: a
+# placeholder here would overwrite the real one on every `kubectl apply -k`.
+# After a Flink/Beam bump, keep the image tags and the
+# beam_flink<ver>_job_server tag in lockstep.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -20,6 +23,11 @@ data:
   flink-conf.yaml: |
     jobmanager.rpc.address: flink-jobmanager
     jobmanager.rpc.port: 6123
+    # Default is an ephemeral (random) port, which the flink-jobmanager
+    # Service's fixed "blob" port (6124) can't forward to — TaskManagers in
+    # other pods then fail to fetch job JARs ("Could not connect to
+    # BlobServer at ...:<random port>"). Pin it to match the Service.
+    blob.server.port: 6124
     jobmanager.memory.process.size: 1024m
     taskmanager.memory.process.size: 2048m
     taskmanager.numberOfTaskSlots: 2
@@ -39,19 +47,3 @@ data:
     s3.path.style.access: "true"
   # Enable the built-in S3 plugin at container start.
   ENABLE_BUILT_IN_PLUGINS: flink-s3-fs-hadoop-1.18.1.jar
----
-# Placeholder credentials for the MinIO bucket. Replace with the real MinIO
-# access/secret keys (kubectl create secret generic flink-s3-creds ...), or wire
-# to an existing secret. Base64 of "changeme".
-apiVersion: v1
-kind: Secret
-metadata:
-  name: flink-s3-creds
-  namespace: patchtst
-  labels:
-    app.kubernetes.io/part-of: patchtst-pipeline
-    app.kubernetes.io/component: flink
-type: Opaque
-data:
-  AWS_ACCESS_KEY_ID: Y2hhbmdlbWU=
-  AWS_SECRET_ACCESS_KEY: Y2hhbmdlbWU=

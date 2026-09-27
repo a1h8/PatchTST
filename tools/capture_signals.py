@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Local, offline signal-capture harness — validates the real PatchTST
 detection path (RegimeSwitchDetector: forecast + reconstruction faces, not the
-zscore fallback) against the h013+ synthetic scenarios, before committing any
-cloud spend on a live deployment.
+zscore fallback) against the synthetic scenarios in scenarios/library.py,
+before committing any cloud spend on a live deployment.
 
 No network, no cloud, no Mimir: pure Python + local torch training on
 synthetic series (scenarios/library.py). Ticks the detector forward over

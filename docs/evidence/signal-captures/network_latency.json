@@ -1,5 +1,5 @@
 {
-  "scenario": "h013_network_latency",
+  "scenario": "network_latency",
   "description": "p99_latency_ms \u2014 gradual network degradation, sustained after onset",
   "n_points": 160,
   "incident_at": 110,
@@ -46,7 +46,7 @@
     {
       "tick": 96,
       "severity": "normal",
-      "score": 1.103,
+      "score": 1.154,
       "regime": "normal",
       "mode": "anticipation",
       "method": "patchtst"
@@ -62,7 +62,7 @@
     {
       "tick": 112,
       "severity": "critical",
-      "score": 3.573,
+      "score": 3.582,
       "regime": "normal",
       "mode": "anticipation",
       "method": "patchtst"
@@ -70,7 +70,7 @@
     {
       "tick": 120,
       "severity": "critical",
-      "score": 49.749,
+      "score": 50.047,
       "regime": "incident",
       "mode": "anticipation",
       "method": "patchtst"
@@ -78,7 +78,7 @@
     {
       "tick": 128,
       "severity": "normal",
-      "score": 0.427,
+      "score": 0.9,
       "regime": "incident",
       "mode": "detective",
       "method": "patchtst-recon"
@@ -86,7 +86,7 @@
     {
       "tick": 136,
       "severity": "normal",
-      "score": 0.96,
+      "score": 0.79,
       "regime": "normal",
       "mode": "detective",
       "method": "patchtst-recon"
@@ -94,7 +94,7 @@
     {
       "tick": 144,
       "severity": "critical",
-      "score": 131.365,
+      "score": 126.643,
       "regime": "normal",
       "mode": "anticipation",
       "method": "patchtst"
@@ -102,7 +102,7 @@
     {
       "tick": 152,
       "severity": "warning",
-      "score": 2.279,
+      "score": 2.584,
       "regime": "normal",
       "mode": "anticipation",
       "method": "patchtst"
@@ -110,7 +110,7 @@
     {
       "tick": 160,
       "severity": "normal",
-      "score": 1.733,
+      "score": 0.806,
       "regime": "normal",
       "mode": "anticipation",
       "method": "patchtst"
@@ -120,5 +120,5 @@
   "first_incident_tick": 120,
   "detection_latency_ticks": 10,
   "false_positive_ticks": [],
-  "elapsed_s": 7.0
+  "elapsed_s": 39.4
 }

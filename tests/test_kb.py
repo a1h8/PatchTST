@@ -204,3 +204,25 @@ def test_signal_store_sink_full_spi_cycle(tmp_path):
 
     out = sink.store.query("Pod/p/a")
     assert [r.ts for r in out] == [1000, 2000]
+
+
+# --- filesystem-agnostic root (pyarrow.fs URIs) ---------------------------
+
+def test_store_file_uri_root_roundtrip(tmp_path):
+    # a URI root goes through pyarrow.fs.FileSystem.from_uri, the same path
+    # s3:// and gs:// take (MinIO / GCS need live infra, exercised there).
+    store = SignalStore(f"file://{tmp_path}/kb")
+    path = store.write([_rec("Pod/p/a", "cpu", 10), _rec("Pod/p/a", "cpu", 20)])
+    assert path.endswith(".parquet") and (tmp_path / "kb").is_dir()
+    assert [r.ts for r in store.query("Pod/p/a")] == [10, 20]
+    assert store.latest("Pod/p/a").ts == 20
+
+
+def test_store_local_root_does_not_create_scheme_directory(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    # regression: os.makedirs("s3://...") used to create a local "s3:" directory
+    store = SignalStore("relative-kb")
+    store.write([_rec("Pod/p/a", "cpu", 1)])
+    assert (tmp_path / "relative-kb").is_dir()
+    assert not (tmp_path / "s3:").exists()
+    assert len(store.query("Pod/p/a")) == 1

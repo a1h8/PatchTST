@@ -1,23 +1,33 @@
 [
   {
-    "scenario": "h013_network_latency",
+    "scenario": "network_latency",
     "detected": true,
     "detection_latency_ticks": 10,
     "false_positive_ticks": [],
-    "elapsed_s": 7.0
+    "elapsed_s": 39.4
   },
   {
-    "scenario": "h014_cert_renewal_stall",
+    "scenario": "cert_renewal_stall",
     "detected": true,
     "detection_latency_ticks": 34,
     "false_positive_ticks": [],
-    "elapsed_s": 1.1
+    "elapsed_s": 9.3
   },
   {
-    "scenario": "h015_etcd_compaction_stall",
+    "scenario": "etcd_compaction_stall",
     "detected": false,
     "detection_latency_ticks": null,
     "false_positive_ticks": [],
+    "elapsed_s": 7.1
+  },
+  {
+    "scenario": "noisy_baseline_no_incident",
+    "detected": true,
+    "detection_latency_ticks": -56,
+    "false_positive_ticks": [
+      104,
+      112
+    ],
     "elapsed_s": 1.3
   }
 ]

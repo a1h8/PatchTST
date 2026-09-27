@@ -5,13 +5,17 @@ by entity/metric/time-window via DuckDB. This is the read path kube-verdict's
 ``rca/context_builder`` uses as historical evidence: "what is the signal history
 of this entity?"
 
-Parquet + DuckDB keeps the POC dependency-light and S3-ready (DuckDB reads
-``s3://`` and Iceberg too); a ClickHouse backend can replace it at scale behind
-the same ``write`` / ``query`` interface.
+Parquet + DuckDB keeps the POC dependency-light; a ClickHouse backend can
+replace it at scale behind the same ``write`` / ``query`` interface.
+
+``root`` is a local path or any URI ``pyarrow.fs`` understands — ``s3://bucket/kb``
+(MinIO via ``?endpoint_override=host:9000&scheme=http``, credentials from
+``AWS_*``), ``gs://bucket/kb`` (Application Default Credentials), ``file:///...``.
+Distributed runners (Flink, Dataflow) need this: their workers share no local
+filesystem, so a local root would land signals on each worker's own disk.
 """
 from __future__ import annotations
 
-import glob
 import json
 import os
 import uuid
@@ -28,6 +32,38 @@ _COLUMNS = [
 class SignalStore:
     def __init__(self, root: str) -> None:
         self.root = root
+
+    def _fs(self):
+        """(filesystem, base path) for ``root`` — local path or a pyarrow.fs URI."""
+        import pyarrow.fs as pafs
+
+        if "://" not in self.root:
+            return pafs.LocalFileSystem(), os.path.abspath(self.root)
+        return pafs.FileSystem.from_uri(self.root)
+
+    def _files(self) -> list[str]:
+        """Parquet files under the root (paths valid for ``_fs()``), sorted."""
+        import pyarrow.fs as pafs
+
+        fs, base = self._fs()
+        infos = fs.get_file_info(pafs.FileSelector(base, allow_not_found=True))
+        return sorted(
+            i.path for i in infos
+            if i.type == pafs.FileType.File and i.path.endswith(".parquet")
+        )
+
+    def _read(self):
+        """All signals as one Arrow table, or None when the root is empty."""
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+
+        files = self._files()
+        if not files:
+            return None
+        fs, _ = self._fs()
+        return pa.concat_tables(
+            [pq.read_table(f, filesystem=fs, schema=self._schema()) for f in files]
+        )
 
     def _schema(self):
         import pyarrow as pa
@@ -70,9 +106,12 @@ class SignalStore:
         rows = [self._to_dict(r) for r in records]
         if not rows:
             return None
-        os.makedirs(self.root, exist_ok=True)
-        path = os.path.join(self.root, f"signals-{uuid.uuid4().hex}.parquet")
-        pq.write_table(pa.Table.from_pylist(rows, schema=self._schema()), path)
+        fs, base = self._fs()
+        fs.create_dir(base, recursive=True)
+        path = f"{base.rstrip('/')}/signals-{uuid.uuid4().hex}.parquet"
+        pq.write_table(
+            pa.Table.from_pylist(rows, schema=self._schema()), path, filesystem=fs
+        )
         return path
 
     def query(
@@ -89,8 +128,8 @@ class SignalStore:
         """
         import duckdb
 
-        files = sorted(glob.glob(os.path.join(self.root, "*.parquet")))
-        if not files:
+        table = self._read()
+        if table is None:
             return []
 
         conds = ["entity_uid = ?"]
@@ -106,7 +145,7 @@ class SignalStore:
             params.append(int(until))
 
         sql = (
-            f"SELECT {', '.join(_COLUMNS)} FROM read_parquet(?) "
+            f"SELECT {', '.join(_COLUMNS)} FROM signals "
             f"WHERE {' AND '.join(conds)} ORDER BY ts"
         )
         if limit is not None:
@@ -114,7 +153,8 @@ class SignalStore:
 
         con = duckdb.connect()
         try:
-            rows = con.execute(sql, [files, *params]).fetchall()
+            con.register("signals", table)
+            rows = con.execute(sql, params).fetchall()
         finally:
             con.close()
 
@@ -128,8 +168,8 @@ class SignalStore:
         """
         import duckdb
 
-        files = sorted(glob.glob(os.path.join(self.root, "*.parquet")))
-        if not files:
+        table = self._read()
+        if table is None:
             return None
 
         conds = ["entity_uid = ?"]
@@ -139,12 +179,13 @@ class SignalStore:
             params.append(metric)
 
         sql = (
-            f"SELECT {', '.join(_COLUMNS)} FROM read_parquet(?) "
+            f"SELECT {', '.join(_COLUMNS)} FROM signals "
             f"WHERE {' AND '.join(conds)} ORDER BY ts DESC LIMIT 1"
         )
         con = duckdb.connect()
         try:
-            rows = con.execute(sql, [files, *params]).fetchall()
+            con.register("signals", table)
+            rows = con.execute(sql, params).fetchall()
         finally:
             con.close()
 

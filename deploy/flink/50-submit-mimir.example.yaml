@@ -1,0 +1,80 @@
+# On-demand smoke submit (NOT in the kustomization): run the pipeline on the
+# Flink cluster with runner: portable, from an in-cluster driver Job.
+#   kubectl apply -f deploy/flink/50-submit-mimir.example.yaml
+#   kubectl -n patchtst logs job/flink-submit-mimir -f
+# The driver uses the same worker image as the TaskManager sidecar, so the
+# launch-time beam version matches the SDK harness by construction.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flink-submit-mimir-config
+  namespace: patchtst
+data:
+  pipeline.yaml: |
+    source:
+      type: mimir
+      params:
+        endpoint: http://mimir-gateway.patchtst.svc.cluster.local:80
+        promql: '{__name__=~"sim_.+"}'
+        start: __START__
+        end: __END__
+        step_s: 60
+        group_by: [pod, namespace]
+        channel_label: __name__
+    detector:
+      type: zscore
+    sinks:
+      - type: signal-store
+        params:
+          # Workers share no filesystem: an object store, via pyarrow.fs.
+          # See AWS_EC2_METADATA_DISABLED in 20-taskmanager.yaml — without it
+          # every S3FileSystem construction here pays an EC2-metadata-probe
+          # timeout before falling back to these env credentials.
+          root: s3://patchtst-kb/kb-flink?endpoint_override=mimir-minio.patchtst.svc:9000&scheme=http&region=us-east-1
+    engine:
+      type: beam
+      runner: portable
+      streaming: true
+      block: false            # streaming submit: detach, do not wait_until_finish()
+      window:
+        size_s: 300
+        period_s: 60
+        allowed_lateness_s: 120
+      options:
+        job_endpoint: beam-job-server.patchtst.svc:8099
+        environment_type: EXTERNAL
+        environment_config: localhost:50000
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: flink-submit-mimir
+  namespace: patchtst
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: driver
+          image: patchtst-beam-worker:2.74.0
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              END=$(date +%s); START=$((END - 3600))
+              sed "s/__START__/$START/; s/__END__/$END/" \
+                /config/pipeline.yaml > /tmp/pipeline.yaml
+              python -m pipeline --check /tmp/pipeline.yaml
+              exec python -m pipeline /tmp/pipeline.yaml
+          envFrom:
+            - secretRef: { name: flink-s3-creds }
+          resources:
+            requests: { cpu: 200m, memory: 1Gi }
+          volumeMounts:
+            - { name: config, mountPath: /config, readOnly: true }
+      volumes:
+        - name: config
+          configMap: { name: flink-submit-mimir-config }
