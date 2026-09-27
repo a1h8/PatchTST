@@ -41,6 +41,7 @@ from typing import Sequence
 from kb.signal import SignalRecord
 
 from .detector import Detector
+from .levelshift import level_shift_score
 
 
 @dataclass(frozen=True)
@@ -131,6 +132,12 @@ class RegimeSwitchDetector(Detector):
     state: InMemoryRegimeState = field(default_factory=InMemoryRegimeState)
     enter_after: int = 1     # consecutive 'critical' forecasts to enter INCIDENT
     exit_after: int = 1      # consecutive 'normal' reconstructions to leave INCIDENT
+    # Level-shift check (see levelshift.py): a sustained displacement of the
+    # level vs the window's own baseline, which both faces are blind to. At or
+    # above ``level_critical`` (robust z, MAD units) it counts as a break in
+    # NORMAL and blocks recovery in INCIDENT. ``None`` disables the check.
+    level_critical: float | None = 8.0
+    level_recent: int = 8
 
     method = "regime-switch"
 
@@ -145,28 +152,40 @@ class RegimeSwitchDetector(Detector):
         key = (entity_uid, metric_name)
         status = self.state.get_status(key)
 
+        shift = (
+            None
+            if self.level_critical is None
+            else level_shift_score(values, recent=self.level_recent)
+        )
+        displaced = shift is not None and shift >= self.level_critical
+
         if status.regime == "normal":
             sig = self.forecast.detect(entity_uid, metric_name, values, ts, labels)
             mode = "anticipation"
-            # a break candidate: the forecaster residual spikes to critical.
+            # a break candidate: the forecaster residual spikes to critical, or
+            # the level has moved away from the window's baseline.
             next_status = self._advance(
-                status, pushing=sig.severity == "critical",
+                status, pushing=sig.severity == "critical" or displaced,
                 threshold=self.enter_after, target="incident",
             )
+            if displaced and sig.severity != "critical":
+                sig = replace(sig, severity="critical")
         else:  # incident
             sig = self.detective.detect(entity_uid, metric_name, values, ts, labels)
             mode = "detective"
-            # a recovery candidate: reconstruction error back to baseline.
+            # a recovery candidate: reconstruction error back to baseline AND the
+            # level back near it — the reconstruction face is level-blind, so on
+            # its own it would end the incident while the plateau persists.
             next_status = self._advance(
-                status, pushing=sig.severity == "normal",
+                status, pushing=sig.severity == "normal" and not displaced,
                 threshold=self.exit_after, target="normal",
             )
 
         self.state.set_status(key, next_status)
-        return replace(
-            sig,
-            labels={**sig.labels, "mode": mode, "regime": next_status.regime},
-        )
+        extra = {"mode": mode, "regime": next_status.regime}
+        if shift is not None:
+            extra["level_shift"] = f"{shift:.2f}"
+        return replace(sig, labels={**sig.labels, **extra})
 
     @staticmethod
     def _advance(

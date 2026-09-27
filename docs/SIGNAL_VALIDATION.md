@@ -58,10 +58,11 @@ periodic CronJob tick against an accumulating/rolling window):
   `enter_after=2` consecutive critical forecasts). `null` = missed entirely.
 - **`false_positive_ticks`** — any tick *before* `incident_at` where the
   regime already reads `incident`.
-- **`elapsed_s`** — wall-clock cost of the capture (CPU-only, reduced
-  capacity — `d_model=16`, `epochs=10` vs. the prod default `d_model=32`,
-  `epochs=30` — this harness measures detection *logic*, not production
-  training time).
+- **`elapsed_s`** — wall-clock cost of the capture (CPU-only). Runs at the
+  production model capacity by default (`d_model=32`, 2 layers, `epochs=30`),
+  with ticks every 5 points — the deployed `*/5` CronJob over 60 s points. An
+  earlier version of this harness ran at reduced capacity (`d_model=16`,
+  `epochs=10`); see the findings below for why that was not representative.
 
 Results are frozen as versioned JSON under `docs/evidence/signal-captures/`,
 one file per scenario plus `summary.json` — a captured artifact, not a
@@ -88,89 +89,134 @@ Any scenario failing this gate is a detector/threshold problem to fix
 three clear, a live run's only remaining question is deployment mechanics
 (the connector, the runner, the provider), not detection quality.
 
-## Current status (2026-09-26) — gate not yet green
+## How `etcd_compaction_stall` got fixed — three separate problems, not one
 
-`network_latency` and `cert_renewal_stall` detect cleanly (0 false
-positives). **`etcd_compaction_stall` and `noisy_baseline_no_incident` do not
-clear the gate yet**, and the root cause for `etcd_compaction_stall` turned
-out not to be a threshold problem:
+Chasing this one scenario surfaced three distinct problems at three
+different layers. None of them were fixed by tuning one threshold harder;
+kept here in the order they were found, since each changes how to read the
+next.
 
-- **`etcd_compaction_stall` is missed even at full production capacity**
-  (`epochs=30, d_model=32`, not just the harness's reduced `epochs=10,
-  d_model=16`) — verified directly against `ReconstructionDetector` alone,
-  score never leaves the 0.7-1.7 range post-incident. Tried widening entry to
-  *either* face reading critical (not just forecast) — reverted: it didn't
-  fix `etcd_compaction_stall` (reconstruction never reads critical there
-  either) and made `noisy_baseline_no_incident` worse (more false positives,
-  since detective got a second chance to misfire on the benign blips too).
-- **Why, structurally:** both `PatchTSTDetector` and `ReconstructionDetector`
-  train from scratch on `values[:tick]` — the growing window — on every
-  call. `etcd_compaction_stall`'s incident is a *sustained* level-shift, not
-  a spike. Once enough post-incident data enters that training window, the
-  model **learns the new level as the new normal** and stops flagging it —
-  it absorbs a persistent anomaly instead of catching it. A one-off spike
-  (`network_latency`'s ramp, `cert_renewal_stall`'s stall-through-zero)
-  doesn't have time to get "learned away" before it's caught; a sustained
-  plateau does.
-- **The likely real fix**: test with `ForecastInferenceDetector` /
-  `ReconstructionInferenceDetector` (`patchtst-infer`/`reconstruction-infer`
-  in `pipeline/runner.py`) instead — these load a frozen checkpoint rather
-  than retraining per tick, so "normal" can't drift toward whatever the
-  recent window looks like. `tools/capture_signals.py` doesn't exercise
-  these yet; that's the next concrete step, not further threshold tuning on
-  the train-on-the-fly detectors.
-- **`noisy_baseline_no_incident` is a calibration problem, not an infra
-  one:** the detector misreads isolated, unrelated benign blips as
-  `critical` — it has not learned to tell "one-off noise" apart from a real
-  sustained shift. This is the same axis as `etcd_compaction_stall` (both are
-  properties of the trained model's behavior), just the opposite failure
-  mode: one under-reacts to a real sustained incident, the other over-reacts
-  to noise that isn't one.
-- **Its false-positive count is also not perfectly reproducible run-to-run**
-  (2 on one run, 4 on another, same code, same input data) — the scenario
-  data has a fixed RNG seed, but neither detector's own torch training seeds
-  its weight init, so the "Deterministic... so captures are reproducible"
-  claim above only covers the input series, not the trained model. Worth a
-  fixed torch seed in the harness if `noisy_baseline_no_incident` becomes the
-  thing being tuned against.
+### 1. A scoring bug that had nothing to do with `etcd_compaction_stall`
 
-## Follow-up (2026-09-27) — frozen checkpoint verified against `etcd_compaction_stall`
+`PatchTSTDetector` scored `eval_rmse / baseline_rmse` with the baseline
+taken **in-sample**, on training windows. The better the model overfits (30
+epochs, prod capacity), the closer that baseline gets to 0, so *any* unseen
+window scores as a huge ratio — at production capacity every scenario
+flipped to `incident` on the same warm-up tick (scores up to ×4000); the
+harness's earlier reduced-capacity default (`epochs=10, d_model=16`) had
+been masking this the whole time. Fixed by measuring the baseline on a
+held-out tail the model never trained on (`holdout_chunks`), falling back
+to z-score until the series is long enough to hold one out.
 
-The "likely real fix" above is now verified, not just proposed:
-`tools/verify_h015_inference.py` trains small forecast+reconstruction
-checkpoints on a long (2000-tick) run of *only* the pre-incident periodic
-pattern (never sees the incident), freezes them, and runs
-`ForecastInferenceDetector`/`ReconstructionInferenceDetector` (wrapped in the
-same `RegimeSwitchDetector`) against the real `etcd_compaction_stall` series.
+### 2. Both faces are structurally blind to a *sustained* level shift
 
-- **Detects at tick ~116 (latency ~6 ticks), 0 false positives before
-  `incident_at`** — versus a total miss for the train-on-the-fly pair, and
-  competitive with `network_latency`'s 10-tick latency. Scores at the break
-  are unambiguous (critical, 18-35 vs. a 1.8/3.0 warning/critical threshold),
-  not a borderline call.
-- **New, different limitation found**: the regime does not *stay* INCIDENT
-  indefinitely — it drifts back to NORMAL after roughly 30-40 more ticks,
-  even though the frozen model's weights never change and the incident in
-  the scenario never actually ends. Root cause is `_score()`'s own rolling
-  baseline (`inference_detector.py`): it's an empirical baseline computed
-  from recent windows of the *same growing `v`*, not something the frozen
-  model "knows" as normal. Once most of that recent history is itself
-  past `incident_at`, the baseline windows are scored against the same
-  frozen model as the eval window, so both come out elevated and the ratio
-  normalizes back toward 1.0 — a second, different way to "dilute" a
-  sustained anomaly, this time in the score's baseline math rather than the
-  model's weights.
-- **Net assessment**: a real, substantial improvement (correct, fast, clean
-  entry) with a distinct remaining gap (sustained alerting) — not wired into
-  `capture_signals.py`'s regular run since it trains its own
-  scenario-specific checkpoint from scratch (~1-2 min), kept as a standalone,
-  on-demand verification for now. Fixing the baseline-dilution gap would mean
-  seeding `_baseline()` from a fixed reference/validation window instead of
-  the live growing series — not attempted here.
+Two independent ways this showed up, and two independent mitigations —
+not competing fixes, complementary layers:
+
+- **Train-on-the-fly retrains itself out of catching it.** Both
+  `PatchTSTDetector` and `ReconstructionDetector` train from scratch on
+  `values[:tick]` — the growing window — on every call.
+  `etcd_compaction_stall`'s incident is a sustained level-shift, not a
+  spike, so once enough post-incident data enters that training window the
+  model **learns the new level as the new normal** and stops flagging it. A
+  one-off spike (`network_latency`'s ramp, `cert_renewal_stall`'s
+  stall-through-zero) doesn't have time to get "learned away" before it's
+  caught; a sustained plateau does. Global z-normalisation and each model's
+  own per-window scaling compound this: they remove the level entirely, so
+  the shift is only visible at the *instant* it happens — with coarse tick
+  spacing (every 5 or 8 points, not every 1-2), the instant can be stepped
+  over entirely and the scenario is missed outright, exactly as first
+  observed.
+- **Mitigation A — a third, detector-agnostic signal**
+  (`detection/levelshift.py` + `RegimeSwitchDetector.level_critical`).
+  Compares the recent window's median against the window's own baseline
+  median, in MAD units — operates on raw values, not on either face's
+  internal ratio, so it doesn't share either face's blind spot. At or above
+  `level_critical` (8.0, the default) it counts as a break in NORMAL *and*
+  blocks recovery in INCIDENT, so the level-blind reconstruction face can't
+  end an incident while the plateau persists. `level_critical: null`
+  disables it. Spot-checked (not a committed test) against legitimate
+  trends — memory ramps, disk fill, daily cycles, a random walk — all
+  scored under 3.2, well under the 8.0 cut.
+- **Mitigation B — stop retraining at all** (verified 2026-09-27,
+  `tools/verify_h015_inference.py`): freeze forecast+reconstruction
+  checkpoints once, on a long pre-incident-only run, and use
+  `ForecastInferenceDetector`/`ReconstructionInferenceDetector` instead of
+  the train-on-the-fly pair. Detects at tick ~116 (latency ~6 ticks), 0
+  false positives, scores unambiguous (critical, 18-35 vs. a 1.8/3.0
+  threshold) — the model genuinely never drifts. **But this trades one
+  blind spot for another**: `_score()`'s rolling baseline is still computed
+  from recent windows of the same *growing* series, not something the
+  frozen model "knows" as normal — so long enough after the incident, most
+  of those baseline windows are themselves post-onset, both baseline and
+  eval error read elevated, and the ratio normalizes back toward 1.0. The
+  regime drifts back to NORMAL after ~30-40 ticks even though the incident
+  never ended and the model's weights never changed (characterized as a
+  fast, deterministic test in `tests/test_inference_detector.py`, no
+  training needed to reproduce it). **Mitigation A's "block recovery while
+  displaced" rule directly covers this gap** — the level-shift check reads
+  raw values, so a diluted ratio in the detective face doesn't matter once
+  level-shift is stopping the exit transition on its own. Not wired
+  together yet (the inference detectors aren't in `capture_signals.py`'s
+  regular run — see caveat below); worth doing before trusting sustained
+  alerting on the inference path in production.
+
+### 3. Tick spacing must match the deployment cadence
+
+Denser ticks "detected" the scenario with *negative* latency before the
+level-shift check existed — false positives on the ordinary periodic
+spikes, not a real detection. Results are now reported at the actual
+deployment cadence (`--step 5`, the `*/5` CronJob over 60s points), and the
+three incident scenarios were swept over steps 1-8 at reduced capacity: all
+detected, zero false positives, at every step — cadence sensitivity was a
+real effect, not a fluke of one step value.
+
+### Caveat: `noisy_baseline_no_incident` didn't exist when the level-shift check was written
+
+The level-shift mitigation (and its trend spot-check above) predates this
+negative-control scenario. It needs a real run against it, not an assumption
+that "robust to trends" also means "robust to isolated blips" — see
+`## Current status` below for the actual result.
 
 ## Reruns
 
 ```sh
-python -m tools.capture_signals                      # defaults: epochs=10, step=8
-python -m tools.capture_signals --epochs 30 --step 4  # closer to prod capacity, slower
+python -m tools.capture_signals                              # prod capacity, step 5 (the gate)
+python -m tools.capture_signals --epochs 10 --d-model 16 --layers 1 --step 8   # fast
 ```
+
+Needs torch/transformers (`requirements-detection-patchtst.txt`); the
+`patchtst-pipeline:torch` image (`--build-arg INSTALL_TORCH=1`) has them.
+
+## Current status (2026-09-27) — gate still not green, one scenario away
+
+Fresh run at production capacity, step 5, level-shift check enabled
+(default):
+
+| Scenario | Result |
+|---|---|
+| `network_latency` | detected, 7 ticks, 0 FP |
+| `cert_renewal_stall` | detected, 37 ticks, 0 FP |
+| `etcd_compaction_stall` | detected, 12 ticks, 0 FP |
+| `noisy_baseline_no_incident` | **`detected: true`, 4 false positives — still fails** |
+
+The three incident scenarios clear the gate cleanly — the level-shift check
+fixes `etcd_compaction_stall` exactly as designed, with no regression on the
+other two. **`noisy_baseline_no_incident` is the one gap left**, and the
+timeline pinpoints it precisely: every false positive fires at
+`method="zscore"` — the short-signal *fallback*, active during the early
+ticks before enough data exists for a full `PatchTSTDetector`/
+`ReconstructionDetector` window. Once enough data accumulates and `patchtst`
+takes over (later ticks), the same isolated blips only ever score `warning`,
+never `critical`. So this isn't quite the "detector miscalibrated on benign
+noise" framing from the original finding — it's specifically
+`ZScoreDetector`'s own recent-tail z-score being too sensitive to a single
+blip during the fallback window, an orthogonal, still-open problem. No
+`level_shift` involvement either way (a single-tick blip doesn't move an
+8-point recent median enough to cross `level_critical`).
+
+Caveats: latency is in ticks of 60s points; `cert_renewal_stall`'s 37 ticks
+is long for anything but a slow, days-scale expiry; these are synthetic
+series and the level-shift threshold has only been spot-checked against
+realistic trends, not real metric history; and the inference-detector path
+(mitigation B above) isn't exercised by this harness at all yet.
