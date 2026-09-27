@@ -73,3 +73,9 @@ the injected anomaly `normal` (score 0.0) — the window/period alignment for
 this particular smoke config didn't isolate the spike. That's a detection
 calibration question, separate from the deployment-plumbing question this
 document answers.
+
+## Reruns
+
+This session's manual sequence is now `python -m tools.live_check_flink` —
+see `docs/evidence/live-checks/README.md`. Re-run it any time the Flink
+manifests change, rather than re-deriving the steps by hand.
