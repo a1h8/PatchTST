@@ -188,11 +188,35 @@ python -m tools.capture_signals --epochs 10 --d-model 16 --layers 1 --step 8   #
 Needs torch/transformers (`requirements-detection-patchtst.txt`); the
 `patchtst-pipeline:torch` image (`--build-arg INSTALL_TORCH=1`) has them.
 
-## Current status
+## Current status (2026-09-27) — gate still not green, one scenario away
 
-At production capacity, step 5: h013 detected (7 ticks), h014 detected
-(37 ticks), h015 detected (12 ticks), zero false positives on all three — the gate
-above clears on the synthetic scenarios. Caveats: latency is in ticks of 60 s
-points; h014's 37 ticks is long for anything but a slow, days-scale expiry; and
-these are synthetic series — the level-shift threshold in particular has only been
-spot-checked against realistic trends, not against real metric history.
+Fresh run at production capacity, step 5, level-shift check enabled
+(default):
+
+| Scenario | Result |
+|---|---|
+| `network_latency` | detected, 7 ticks, 0 FP |
+| `cert_renewal_stall` | detected, 37 ticks, 0 FP |
+| `etcd_compaction_stall` | detected, 12 ticks, 0 FP |
+| `noisy_baseline_no_incident` | **`detected: true`, 4 false positives — still fails** |
+
+The three incident scenarios clear the gate cleanly — the level-shift check
+fixes `etcd_compaction_stall` exactly as designed, with no regression on the
+other two. **`noisy_baseline_no_incident` is the one gap left**, and the
+timeline pinpoints it precisely: every false positive fires at
+`method="zscore"` — the short-signal *fallback*, active during the early
+ticks before enough data exists for a full `PatchTSTDetector`/
+`ReconstructionDetector` window. Once enough data accumulates and `patchtst`
+takes over (later ticks), the same isolated blips only ever score `warning`,
+never `critical`. So this isn't quite the "detector miscalibrated on benign
+noise" framing from the original finding — it's specifically
+`ZScoreDetector`'s own recent-tail z-score being too sensitive to a single
+blip during the fallback window, an orthogonal, still-open problem. No
+`level_shift` involvement either way (a single-tick blip doesn't move an
+8-point recent median enough to cross `level_critical`).
+
+Caveats: latency is in ticks of 60s points; `cert_renewal_stall`'s 37 ticks
+is long for anything but a slow, days-scale expiry; these are synthetic
+series and the level-shift threshold has only been spot-checked against
+realistic trends, not real metric history; and the inference-detector path
+(mitigation B above) isn't exercised by this harness at all yet.
