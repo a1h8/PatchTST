@@ -1,0 +1,3 @@
+[submodule "vendor/patchtst-upstream"]
+	path = vendor/patchtst-upstream
+	url = https://github.com/yuqinie98/PatchTST.git
