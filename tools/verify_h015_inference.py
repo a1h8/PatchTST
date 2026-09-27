@@ -58,7 +58,7 @@ def main() -> None:
     device = "cpu"
     args = _Args()
 
-    train = _standardize(_gen_long_normal().reshape(-1, 1), n_points := 2000)
+    train = _standardize(_gen_long_normal().reshape(-1, 1), 2000)
     print("=== training on long normal-only pattern (never sees the incident) ===")
     pt_path = pretrain(spec, train, args, device)
     ft_path = finetune(spec, train, pt_path, args, device)
