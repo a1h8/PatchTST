@@ -4,21 +4,21 @@
     "detected": true,
     "detection_latency_ticks": 7,
     "false_positive_ticks": [],
-    "elapsed_s": 15.4
+    "elapsed_s": 16.7
   },
   {
     "scenario": "cert_renewal_stall",
     "detected": true,
     "detection_latency_ticks": 37,
     "false_positive_ticks": [],
-    "elapsed_s": 4.2
+    "elapsed_s": 4.3
   },
   {
     "scenario": "etcd_compaction_stall",
     "detected": true,
     "detection_latency_ticks": 12,
     "false_positive_ticks": [],
-    "elapsed_s": 6.8
+    "elapsed_s": 6.9
   },
   {
     "scenario": "noisy_baseline_no_incident",
@@ -26,10 +26,8 @@
     "detection_latency_ticks": -63,
     "false_positive_ticks": [
       97,
-      102,
-      117,
-      122
+      102
     ],
-    "elapsed_s": 5.5
+    "elapsed_s": 4.1
   }
 ]

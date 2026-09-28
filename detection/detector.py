@@ -45,6 +45,16 @@ class ZScoreDetector(Detector):
     critical: float = 4.5
     min_points: int = 8
     recent_fraction: float = 0.25
+    # Caps the recent tail to an absolute size. Without it, `recent_fraction`
+    # of an ever-growing cumulative window means the tail itself grows, so a
+    # single isolated blip stays inside "recent" — and therefore `critical`
+    # — for dozens of points after it happened, not just the tick it occurred
+    # on (e.g. a lone +6.0 blip in `noisy_baseline_no_incident` stayed
+    # `critical` for 6 consecutive evaluated ticks, long enough to pass any
+    # reasonable `enter_after` debounce). Bounding the tail makes a one-off
+    # blip age out almost immediately, the way a real sustained deviation
+    # (which keeps refilling the tail with bad points) does not.
+    max_recent: int = 8
 
     method = "zscore"
 
@@ -75,7 +85,7 @@ class ZScoreDetector(Detector):
                 score = 0.0
             else:
                 z = np.abs((v - mu) / sigma)
-                q = max(1, int(n * self.recent_fraction))
+                q = min(max(1, int(n * self.recent_fraction)), self.max_recent)
                 score = float(z[-q:].max())
 
         return SignalRecord(

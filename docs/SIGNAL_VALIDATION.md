@@ -188,7 +188,7 @@ python -m tools.capture_signals --epochs 10 --d-model 16 --layers 1 --step 8   #
 Needs torch/transformers (`requirements-detection-patchtst.txt`); the
 `patchtst-pipeline:torch` image (`--build-arg INSTALL_TORCH=1`) has them.
 
-## Current status (2026-09-27) — gate still not green, one scenario away
+## Current status (2026-09-28) — down to debounce-latency, not a detector bug
 
 Fresh run at production capacity, step 5, level-shift check enabled
 (default):
@@ -198,22 +198,29 @@ Fresh run at production capacity, step 5, level-shift check enabled
 | `network_latency` | detected, 7 ticks, 0 FP |
 | `cert_renewal_stall` | detected, 37 ticks, 0 FP |
 | `etcd_compaction_stall` | detected, 12 ticks, 0 FP |
-| `noisy_baseline_no_incident` | **`detected: true`, 4 false positives — still fails** |
+| `noisy_baseline_no_incident` | `detected: true`, 2 false-positive ticks (was 4) |
 
-The three incident scenarios clear the gate cleanly — the level-shift check
-fixes `etcd_compaction_stall` exactly as designed, with no regression on the
-other two. **`noisy_baseline_no_incident` is the one gap left**, and the
-timeline pinpoints it precisely: every false positive fires at
-`method="zscore"` — the short-signal *fallback*, active during the early
-ticks before enough data exists for a full `PatchTSTDetector`/
-`ReconstructionDetector` window. Once enough data accumulates and `patchtst`
-takes over (later ticks), the same isolated blips only ever score `warning`,
-never `critical`. So this isn't quite the "detector miscalibrated on benign
-noise" framing from the original finding — it's specifically
-`ZScoreDetector`'s own recent-tail z-score being too sensitive to a single
-blip during the fallback window, an orthogonal, still-open problem. No
-`level_shift` involvement either way (a single-tick blip doesn't move an
-8-point recent median enough to cross `level_critical`).
+The three incident scenarios clear the gate cleanly. `noisy_baseline_no_incident`'s
+false positives were traced to a real bug in `ZScoreDetector` (the short-signal
+fallback, active before enough data exists for a full `PatchTSTDetector`/
+`ReconstructionDetector` window): `recent_fraction` sized the "recent" tail as
+a fraction of the *whole, ever-growing* window, so the tail itself grew over
+time — a single isolated blip stayed inside it, and therefore kept reading
+`critical`, for 6 consecutive evaluated ticks (26 raw points) after it
+happened, comfortably enough to pass `enter_after=2`. Capping the tail to an
+absolute `max_recent` (default 8) fixed that: the same blip now reads
+`critical` for exactly 1 tick, cutting false positives from 4 to 2.
+
+The **remaining 2 ticks are debounce latency, not a detector bug**: with
+`tick_step=5` and `max_recent=8`, one isolated blip is still within the tail
+at two evaluations 5 apart (ticks 92 and 97), which is exactly what
+`enter_after=2` requires to flip the regime — plus one more tick before
+`exit_after=2` releases it. Raising `enter_after` to 3 does reach 0 false
+positives, but costs +5 ticks of detection latency on *every* real incident
+scenario (`network_latency` 7→12, `cert_renewal_stall` 37→42,
+`etcd_compaction_stall` 12→17) — a real tradeoff between false-positive
+elimination and response time, not a free fix, so `enter_after=2` stays the
+default here.
 
 Caveats: latency is in ticks of 60s points; `cert_renewal_stall`'s 37 ticks
 is long for anything but a slow, days-scale expiry; these are synthetic
