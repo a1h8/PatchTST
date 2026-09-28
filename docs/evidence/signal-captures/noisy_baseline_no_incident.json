@@ -32,7 +32,7 @@
     {
       "tick": 72,
       "severity": "normal",
-      "score": 0.966,
+      "score": 0.686,
       "regime": "normal",
       "mode": "anticipation",
       "method": "zscore"
@@ -56,7 +56,7 @@
     {
       "tick": 87,
       "severity": "normal",
-      "score": 1.247,
+      "score": 0.88,
       "regime": "normal",
       "mode": "anticipation",
       "method": "zscore"
@@ -80,7 +80,7 @@
     {
       "tick": 102,
       "severity": "normal",
-      "score": 1.258,
+      "score": 0.752,
       "regime": "incident",
       "mode": "detective",
       "method": "patchtst-recon"
@@ -88,47 +88,47 @@
     {
       "tick": 107,
       "severity": "normal",
-      "score": 0.959,
+      "score": 1.229,
       "regime": "normal",
       "mode": "detective",
       "method": "patchtst-recon"
     },
     {
       "tick": 112,
-      "severity": "critical",
-      "score": 6.384,
+      "severity": "normal",
+      "score": 0.601,
       "regime": "normal",
       "mode": "anticipation",
       "method": "zscore"
     },
     {
       "tick": 117,
-      "severity": "critical",
-      "score": 6.515,
-      "regime": "incident",
+      "severity": "normal",
+      "score": 0.43,
+      "regime": "normal",
       "mode": "anticipation",
       "method": "zscore"
     },
     {
       "tick": 122,
       "severity": "normal",
-      "score": 1.095,
-      "regime": "incident",
-      "mode": "detective",
-      "method": "patchtst-recon"
+      "score": 0.392,
+      "regime": "normal",
+      "mode": "anticipation",
+      "method": "patchtst"
     },
     {
       "tick": 127,
       "severity": "normal",
-      "score": 1.038,
+      "score": 0.378,
       "regime": "normal",
-      "mode": "detective",
-      "method": "patchtst-recon"
+      "mode": "anticipation",
+      "method": "patchtst"
     },
     {
       "tick": 132,
       "severity": "warning",
-      "score": 2.052,
+      "score": 2.121,
       "regime": "normal",
       "mode": "anticipation",
       "method": "patchtst"
@@ -136,7 +136,7 @@
     {
       "tick": 137,
       "severity": "warning",
-      "score": 2.188,
+      "score": 2.199,
       "regime": "normal",
       "mode": "anticipation",
       "method": "patchtst"
@@ -144,7 +144,7 @@
     {
       "tick": 142,
       "severity": "normal",
-      "score": 0.42,
+      "score": 0.479,
       "regime": "normal",
       "mode": "anticipation",
       "method": "patchtst"
@@ -152,7 +152,7 @@
     {
       "tick": 147,
       "severity": "normal",
-      "score": 1.213,
+      "score": 1.405,
       "regime": "normal",
       "mode": "anticipation",
       "method": "patchtst"
@@ -160,7 +160,7 @@
     {
       "tick": 152,
       "severity": "normal",
-      "score": 1.42,
+      "score": 1.377,
       "regime": "normal",
       "mode": "anticipation",
       "method": "patchtst"
@@ -168,7 +168,7 @@
     {
       "tick": 157,
       "severity": "normal",
-      "score": 1.769,
+      "score": 1.724,
       "regime": "normal",
       "mode": "anticipation",
       "method": "patchtst"
@@ -179,9 +179,7 @@
   "detection_latency_ticks": -63,
   "false_positive_ticks": [
     97,
-    102,
-    117,
-    122
+    102
   ],
-  "elapsed_s": 5.5
+  "elapsed_s": 4.1
 }

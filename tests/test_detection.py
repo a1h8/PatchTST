@@ -34,6 +34,30 @@ def test_detector_short_series_is_normal():
     assert r.severity == "normal" and r.score == 0.0 and r.n_points == 2
 
 
+def test_detector_isolated_blip_ages_out_of_recent_tail():
+    # A single self-recovering blip, then 20 more stable points. Without
+    # max_recent, `recent_fraction` of the whole (growing) window keeps this
+    # blip inside "recent" for many points after it happened — it's a lone
+    # tick, not a sustained deviation, and should stop reading `critical`
+    # well before the window doubles in length.
+    values = [2.0] * 40 + [8.0] + [2.0] * 20
+    scores = [
+        ZScoreDetector().detect("e", "cpu", values[: i + 1], ts=i).severity
+        for i in range(40, len(values))
+    ]
+    assert scores[0] == "critical"  # the blip itself
+    assert scores[-5:] == ["normal"] * 5  # long aged out by the end of the series
+
+
+def test_detector_max_recent_caps_the_tail_regardless_of_window_growth():
+    # Same blip, evaluated at a much later tick (window ~4x longer). Under the
+    # old unbounded `recent_fraction`, the growing tail would still cover the
+    # blip here; capped at max_recent, it must not.
+    values = [2.0] * 40 + [8.0] + [2.0] * 120
+    r = ZScoreDetector().detect("e", "cpu", values, ts=len(values))
+    assert r.severity == "normal"
+
+
 # --- transform: PivotRows -> SignalRecords --------------------------------
 
 def test_detect_signals_one_per_entity_metric():
