@@ -1,9 +1,14 @@
 # Detection pipeline as a CronJob (the `engine: local` deployment target).
 #
-# Each tick: read the last hour of `sim_*` metrics from Mimir, run the detector,
-# write aggregated SignalRecords to the KB datalake. The runner takes static
-# start/end, so the rolling window is computed at runtime and substituted into
-# the mounted config (placeholders __START__/__END__).
+# Each tick: read the last hour of real pod-restart telemetry from Mimir, run
+# the detector, write aggregated SignalRecords to the KB datalake. The runner
+# takes static start/end, so the rolling window is computed at runtime and
+# substituted into the mounted config (placeholders __START__/__END__).
+#
+# promql is `increase(kube_pod_container_status_restarts_total[10m])` — real
+# cluster telemetry via kube-state-metrics -> Prometheus remote_write -> Mimir
+# (enabled 2026-09-28), not the `sim_*` fixtures. It's the live counterpart of
+# scenarios.library.noisy_baseline_no_incident's pod_restart_count shape.
 #
 # Detector is `zscore` (dependency-free). For PatchTST/reconstruction, build the
 # image with --build-arg INSTALL_TORCH=1 and swap the `detector:` block.
@@ -18,7 +23,7 @@ data:
       type: mimir
       params:
         endpoint: http://mimir-gateway.patchtst.svc.cluster.local:80
-        promql: '{__name__=~"sim_.+"}'
+        promql: 'increase(kube_pod_container_status_restarts_total[10m])'
         start: __START__          # epoch seconds, filled in at runtime
         end: __END__
         step_s: 60
