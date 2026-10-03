@@ -32,21 +32,41 @@ spec:
         # Permissive limits so a demo ingest is not throttled.
         limits:
           out_of_order_time_window: 1h
+        # filesystem, not the bundled MinIO: quay.io/minio/minio pulls now
+        # 401 for every tag, anonymous or not (MinIO Inc.'s 2024 distribution
+        # policy change, not a cluster/registry issue on our end -- verified
+        # with a plain `docker pull`, reproducible outside k3d too). Fine for
+        # a single-node dev footprint; swap back to s3+minio (or a real
+        # bucket) for anything resembling production.
+        # Under /tmp, not /data: each component's own working/data directory
+        # defaults to /data (the chart's PVC mount), and Mimir's config
+        # validator rejects a blocks/alertmanager/ruler storage dir that
+        # nests under (or contains) that directory. /tmp is unrelated to it
+        # -- fine for a throwaway dev footprint, not for anything persisted.
+        common:
+          storage:
+            backend: filesystem
+            filesystem:
+              dir: /tmp/mimir
+        blocks_storage:
+          backend: filesystem
+          filesystem:
+            dir: /tmp/mimir/blocks
+        alertmanager_storage:
+          backend: filesystem
+          filesystem:
+            dir: /tmp/mimir/alertmanager
+        ruler_storage:
+          backend: filesystem
+          filesystem:
+            dir: /tmp/mimir/ruler
     metaMonitoring:
       serviceMonitor:
         enabled: false
     rollout_operator:
       enabled: false
     minio:
-      enabled: true
-      mode: standalone
-      replicas: 1
-      persistence:
-        size: 5Gi
-      resources:
-        requests:
-          cpu: 50m
-          memory: 128Mi
+      enabled: false
     alertmanager:
       replicas: 1
       zoneAwareReplication:
