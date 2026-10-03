@@ -1,0 +1,7 @@
+{
+  "checked_at": "2026-10-03T20:16:42.391050+00:00",
+  "target": "otlp-push-receiver",
+  "entity_uid": "otlp-livecheck-demo",
+  "signal_count": 1,
+  "pass": true
+}

@@ -1,0 +1,87 @@
+# Detection pipeline reading from the embedded OTLP/HTTP receiver (connector
+# C2) -- the OTLPSource analog of deploy/kafka/20-pipeline-kafka.yaml. A plain
+# Job, not a CronJob: OTLPSource.read() binds the receiver on first call and
+# drains whatever was pushed within poll_timeout_s (see
+# connectors/sources/otlp.py), so there's no rolling window to recompute --
+# re-run manually (tools/live_check_otlp.py handles the push timing).
+#
+# poll_timeout_s is generous (25s) to leave a real window for a separate
+# pusher pod to find the Service DNS resolvable and the receiver listening,
+# not because the push itself is slow.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pipeline-otlp-config
+  namespace: patchtst
+data:
+  pipeline.yaml: |
+    source:
+      type: otlp
+      params:
+        host: 0.0.0.0
+        port: 4318
+        group_by: [service.name]
+        poll_timeout_s: 25.0
+    detector:
+      type: zscore
+    sinks:
+      - type: signal-store
+        params:
+          root: /data/kb
+    engine:
+      type: local
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pipeline-otlp
+  namespace: patchtst
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app: pipeline-otlp
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: pipeline
+          image: patchtst-pipeline:dev
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "pipeline", "/config/pipeline.yaml"]
+          ports:
+            - containerPort: 4318
+              name: otlp-http
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: datalake
+              mountPath: /data/kb
+      volumes:
+        - name: config
+          configMap:
+            name: pipeline-otlp-config
+        - name: datalake
+          persistentVolumeClaim:
+            claimName: kb-datalake
+---
+# Selects the Job's pod directly (a Job has no stable controller-owned
+# Service by default); fine for a single-pod bounded run like this one.
+apiVersion: v1
+kind: Service
+metadata:
+  name: pipeline-otlp
+  namespace: patchtst
+spec:
+  selector:
+    app: pipeline-otlp
+  ports:
+    - port: 4318
+      targetPort: 4318

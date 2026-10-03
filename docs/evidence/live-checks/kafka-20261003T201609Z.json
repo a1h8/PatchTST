@@ -1,0 +1,7 @@
+{
+  "checked_at": "2026-10-03T20:16:09.502992+00:00",
+  "target": "kafka-redpanda",
+  "entity_uid": "node2/demo",
+  "signal_count": 2,
+  "pass": true
+}
