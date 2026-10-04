@@ -44,6 +44,6 @@ engine:
     staging_location: gs://patchtst-dataflow/staging
     job_name: patchtst-detection-stream
     # Custom SDK container carrying the pipeline code + deps (deploy/dataflow/Dockerfile).
-    sdk_container_image: europe-west1-docker.pkg.dev/my-gcp-project/patchtst/dataflow-worker:2.74.0
+    sdk_container_image: europe-west1-docker.pkg.dev/my-gcp-project/patchtst/dataflow-worker:2.76.0
     experiments: [use_runner_v2, enable_streaming_engine]
     max_num_workers: 5
