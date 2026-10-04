@@ -3,19 +3,19 @@
 # Unlike the top-level Dockerfile (Beam-free, `engine: local` on K3s), Dataflow
 # workers must run the Beam SDK harness AND import the pipeline code. This image
 # is built FROM the Beam SDK container matching the launch-time versions
-# (apache-beam 2.74.0 / python 3.11) and layers the connector deps + code on top.
+# (apache-beam 2.76.0 / python 3.11) and layers the connector deps + code on top.
 #
 # The base tag MUST match the apache-beam version used to submit the job, or the
 # runner rejects the workers. Keep it in lockstep with requirements-connectors.txt.
 #
 # Build & push (Artifact Registry):
 #   REGION=europe-west1; PROJECT=my-gcp-project
-#   IMAGE=$REGION-docker.pkg.dev/$PROJECT/patchtst/dataflow-worker:2.74.0
+#   IMAGE=$REGION-docker.pkg.dev/$PROJECT/patchtst/dataflow-worker:2.76.0
 #   docker build -f deploy/dataflow/Dockerfile -t $IMAGE .
 #   docker push $IMAGE
 # then reference it as engine.options.sdk_container_image (see
 # config/dataflow-streaming.example.yaml).
-FROM apache/beam_python3.11_sdk:2.74.0
+FROM apache/beam_python3.11_sdk:2.76.0
 
 ENV PIP_NO_CACHE_DIR=1
 
